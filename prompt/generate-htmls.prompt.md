@@ -8,7 +8,7 @@ You job is to generate HTML files for a static blog site
     - run it always from the `delphi-pl` folder
     - bash command provided below
     - use `blog-template.html` as the template file
-    - validate that the HTML was generated and has corresponding file name (e.g., `class-helpers-readable-code.md` -> `class-helpers-readable-code.html`)
+    - input file contains front matter with metadata `postId` field (example: file `001-post-en.md` contains `postId: class-helpers-readable-code`). Generated HTML file named: `{postId}-{language}.html` (e.g., `class-helpers-readable-code-en.html`).
 2. **Highlight code blocks**: Run `highlight-code-blocks` prompt 
     - prompt apply syntax highlighting for code blocks using <span> tags.
     - validate HTML contains highlighting classes (`keyword`, `routine`, `identifier`, etc.)

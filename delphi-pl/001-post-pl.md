@@ -5,7 +5,7 @@ date: 2026-03-13
 author: "Bogdan Polak"
 title: "Czytelny kod dzięki Class Helpers"
 description: "Jak Class Helpers mogą poprawić czytelność kodu w projektach Delphi?"
-coverImage: "./delphi-pl/images/post001-image-001.png"
+coverImage: "images/post001-image-001.png"
 coverImageCaption: "Wiewiórka pracuje przy komputerze, podczas gdy niebieski ptak sprawdza czytelność kodu."
 intro: "Projekty Delphi z czasem gromadzą dużo proceduralnego kodu pomocniczego, zwykle w postaci funkcji narzędziowych. Ten kod działa, ale jego czytanie staje się coraz bardziej kosztowne. Te same wzorce pojawiają się w różnych częściach kodu. Class helpers dostępne we wszystkich nowoczesnych wersjach Delphi są jednym z najprostszych sposobów, aby uczynić ten kod łatwiejszym do czytania."
 ---
