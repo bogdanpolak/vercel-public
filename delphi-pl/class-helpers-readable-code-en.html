@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>More Readable Code with Class Helpers</title>
+  <meta name="description" content="How Class Helpers can improve code readability in Delphi projects?">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;300;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./article.css">
+</head>
+
+<body>
+  <main class="page">
+    <div class="shell">
+      <header class="hero">
+        <div class="hero-grid">
+          <div>
+            <div class="meta" aria-label="Article metadata">
+              <span>2026-03-13</span>
+              <span>Bogdan Polak</span>
+              <span>en</span>
+            </div>
+            <h1>More Readable Code with Class Helpers</h1>
+            <p class="hero-intro">How Class Helpers can improve code readability in Delphi projects?</p>
+          </div>
+          <figure class="cover">
+            <img src="images/post001-image-001.png" alt="A squirrel works at a computer while a blue bird inspects the code readability." loading="lazy">
+            <figcaption>A squirrel works at a computer while a blue bird inspects the code readability.</figcaption>
+          </figure>
+        </div>
+      </header>
+
+      <div class="article-wrap">
+        <article class="content">
+          
+<h1>More Readable Code with Class Helpers</h1>
+
+<p>Delphi projects tend to accumulate a lot of procedural glue over time, usually in the form of utility functions. That code works, but reading it becomes increasingly expensive. The same patterns show up in different parts of the codebase, such as:</p>
+
+<ul>
+    <li>convert a stream into a byte array</li>
+    <li>extract the month and year from a date</li>
+    <li>walk through a dataset and sum the Price field</li>
+</ul>
+<p>Class helpers available in all modern Delphi versions are one of the simplest ways to make that code easier to read.</p>
+
+<p>This article presents class helpers as a tool for improving readability, not as a language curiosity. The goal is simple: make common operations look like natural behavior of the types involved.</p>
+
+<h2>Fragmentation of Intent</h2>
+
+<p>The problem with older Delphi code usually is not just the number of lines. The issue is that the intent is split across too many places. Someone reading the code has to jump between units to find helper functions needed to complete a task. That breaks focus and makes it harder to see what the code is actually doing.</p>
+
+<p>A procedural style often produces code like this:</p>
+
+<section class="code">
+<pre><code><span class="keyword">function</span> <span class="routine">FileToFormattedBase64</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">AFileName</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">)</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">;</span>
+<span class="keyword">var</span>
+  <span class="identifier">ms</span><span class="operator">:</span> <span class="class-name">TMemoryStream</span><span class="operator">;</span>
+  <span class="identifier">base64</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  <span class="identifier">ms</span> <span class="operator">:=</span> <span class="class-name">TMemoryStream</span><span class="operator">.</span><span class="property">Create</span><span class="operator">;</span>
+  <span class="keyword">try</span>
+    ms<span class="operator">.</span><span class="routine">LoadFromFile</span><span class="operator">(</span>AFileName<span class="operator">)</span><span class="operator">;</span>
+    <span class="identifier">base64</span> <span class="operator">:=</span> <span class="class-name">TNetEncoding</span><span class="operator">.</span><span class="property">Base64</span><span class="operator">.</span><span class="routine">EncodeBytesToString</span><span class="operator">(</span>ms<span class="operator">.</span><span class="property">Memory</span><span class="operator">,</span> ms<span class="operator">.</span><span class="property">Size</span><span class="operator">)</span><span class="operator">;</span>
+    <span class="identifier">Result</span> <span class="operator">:=</span> <span class="class-name">TUtilsString</span><span class="operator">.</span><span class="routine">FormatStringAsLines</span><span class="operator">(</span>base64<span class="operator">,</span> <span class="number">68</span><span class="operator">)</span><span class="operator">;</span>
+  <span class="keyword">finally</span>
+    ms<span class="operator">.</span><span class="property">Free</span><span class="operator">;</span>
+  <span class="keyword">end</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span></code></pre>
+</section>
+
+<p>There is nothing especially difficult to understand here, but the logic is fragmented. Now compare it with a helper-oriented style:</p>
+
+<section class="code">
+<pre><code><span class="keyword">function</span> <span class="routine">FileToFormattedBase64</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">AFileName</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">)</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">;</span>
+<span class="keyword">var</span>
+  <span class="identifier">bytes</span><span class="operator">:</span> <span class="class-name">TBytes</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  bytes<span class="operator">.</span><span class="routine">LoadFromFile</span><span class="operator">(</span><span class="string">&#39;photo.png&#39;</span><span class="operator">)</span><span class="operator">;</span>
+  <span class="identifier">Result</span> <span class="operator">:=</span> bytes<span class="operator">.</span><span class="property">GenerateBase64Code</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span></code></pre>
+</section>
+
+<p>The second example is closer to the problem domain. The operations are attached to the type that owns the data. That is the main value of helpers: they improve the shape of the code where it is used. The code also becomes more standardized, because instead of using <code>TMemoryStream</code>, the programmer works with a byte array that does not require manual memory management.</p>
+
+<h2>What Class Helpers Give You</h2>
+
+<p>In Delphi, a helper lets you add methods to an existing type without modifying its original declaration. In practice, that means you can extend framework types such as <code>TBytes</code>, <code>TDateTime</code>, <code>TDataSet</code>, <code>TStringGrid</code>, or <code>TStream</code> with methods that are specific to how your application actually uses them.</p>
+
+<p>This repository follows a clean convention:</p>
+
+<ul>
+    <li>value-like types use <code>record helper for</code></li>
+    <li>class-based types use <code>class helper for</code></li>
+    <li>each helper lives in its own unit</li>
+    <li>helper names match the expanded type, such as <code>TBytesHelper</code> or <code>TDataSetHelper</code></li>
+</ul>
+<p>That structure matters because helpers become dangerous when they grow without discipline. Used well, they make the code more expressive. Used badly, they turn core types into dumping grounds for unrelated shortcuts.</p>
+
+<h2>Record Helper vs Class Helper</h2>
+
+<p>In this project, <code>TBytes</code> and <code>TDateTime</code> are extended with record helpers, while types like <code>TDataSet</code>, <code>TStream</code>, and <code>TStringGrid</code> use class helpers.</p>
+
+<p>That split is sensible.</p>
+
+<p>Use a record helper when the target type behaves like a value. Use a class helper when the target is a normal Delphi class. This keeps the extension aligned with the kind of type you are working with and makes the code easier to reason about.</p>
+
+<p>For example, this helper signature is a good fit for bytes:</p>
+
+<section class="code">
+<pre><code><span class="keyword">type</span>
+  <span class="class-name">TBytesHelper</span> <span class="operator">=</span> <span class="keyword">record</span> <span class="keyword">helper</span> <span class="keyword">for</span> <span class="class-name">TBytes</span>
+  <span class="keyword">public</span>
+    <span class="keyword">procedure</span> <span class="routine">LoadFromFile</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">aFileName</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">)</span><span class="operator">;</span>
+    <span class="keyword">procedure</span> <span class="routine">SaveToFile</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">aFileName</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">)</span><span class="operator">;</span>
+    <span class="keyword">function</span> <span class="routine">GenerateBase64Code</span><span class="operator">(</span><span class="identifier">aLineLength</span><span class="operator">:</span> <span class="type">Integer</span> <span class="operator">=</span> <span class="number">68</span><span class="operator">)</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">;</span>
+  <span class="keyword">end</span><span class="operator">;</span></code></pre>
+</section>
+
+<p>And this is a good fit for datasets:</p>
+
+<section class="code">
+<pre><code><span class="keyword">type</span>
+  <span class="class-name">TDataSetHelper</span> <span class="operator">=</span> <span class="keyword">class</span> <span class="keyword">helper</span> <span class="keyword">for</span> <span class="class-name">TDataSet</span>
+  <span class="keyword">public</span>
+    <span class="keyword">procedure</span> <span class="routine">ForEachRow</span><span class="operator">(</span><span class="identifier">proc</span><span class="operator">:</span> <span class="class-name">TProc</span><span class="operator">)</span><span class="operator">;</span>
+    <span class="keyword">function</span> <span class="routine">LoadData</span><span class="operator">&lt;</span><span class="identifier">T</span><span class="operator">:</span> <span class="keyword">class</span><span class="operator">,</span> <span class="keyword">constructor</span><span class="operator">&gt;</span><span class="operator">:</span> <span class="class-name">TObjectList</span><span class="operator">&lt;</span>T<span class="operator">&gt;</span><span class="operator">;</span>
+  <span class="keyword">end</span><span class="operator">;</span></code></pre>
+</section>
+
+<p>Neither helper changes what the underlying type is. They only make common operations easier to discover and easier to read.</p>
+
+<h2>A Better Call Site with TBytes</h2>
+
+<p>Binary data handling is a good example because Delphi projects often repeat the same file, stream, Base64, and checksum code in many places.</p>
+
+<p>Without helpers, a team usually ends up with a utility unit full of global procedures. With a focused helper, the code becomes much more direct:</p>
+
+<section class="code">
+<pre><code><span class="keyword">uses</span>
+  <span class="keyword">Helper</span><span class="operator">.</span><span class="class-name">TBytes</span><span class="operator">;</span>
+
+<span class="keyword">var</span>
+  <span class="identifier">bytes</span><span class="operator">:</span> <span class="class-name">TBytes</span><span class="operator">;</span>
+  <span class="identifier">crc</span><span class="operator">:</span> <span class="type">LongWord</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  bytes<span class="operator">.</span><span class="routine">LoadFromFile</span><span class="operator">(</span><span class="string">&#39;report.bin&#39;</span><span class="operator">)</span><span class="operator">;</span>
+  <span class="identifier">crc</span> <span class="operator">:=</span> bytes<span class="operator">.</span><span class="routine">GetSectorCRC32</span><span class="operator">(</span><span class="number">0</span><span class="operator">,</span> bytes<span class="operator">.</span><span class="property">Size</span><span class="operator">)</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span></code></pre>
+</section>
+
+<p>There are two readability wins here.</p>
+
+<p>First, the code reads from left to right in terms of ownership: the bytes load themselves, inspect themselves, and transform themselves. Second, the helper API surfaces intent through method names that match the domain. <code>GetSectorCRC32</code> says much more than a generic <code>CalculateChecksum</code> utility function sitting in another unit.</p>
+
+<p>This style also reduces parameter noise. Instead of passing the same object through several functions, you invoke behavior directly on the value you already have.</p>
+
+<h2>A Better Call Site with TDataSet</h2>
+
+<p>Database code in Delphi often becomes hard to read because iteration, field access, and object mapping are scattered across many blocks of technical plumbing.</p>
+
+<p>A helper can tighten that up.</p>
+
+<p>For row iteration, this is easier to scan:</p>
+
+<section class="code">
+<pre><code><span class="keyword">uses</span>
+  Data<span class="operator">.</span><span class="property">DB</span><span class="operator">,</span>
+  <span class="keyword">Helper</span><span class="operator">.</span><span class="class-name">TDataSet</span><span class="operator">;</span>
+
+<span class="keyword">procedure</span> <span class="routine">CollectCityNames</span><span class="operator">(</span><span class="identifier">aDataSet</span><span class="operator">:</span> <span class="class-name">TDataSet</span><span class="operator">;</span> <span class="identifier">aNames</span><span class="operator">:</span> <span class="class-name">TStrings</span><span class="operator">)</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  aDataSet<span class="operator">.</span><span class="routine">ForEachRow</span><span class="operator">(</span>
+    <span class="keyword">procedure</span>
+    <span class="keyword">begin</span>
+      aNames<span class="operator">.</span><span class="routine">Add</span><span class="operator">(</span>aDataSet<span class="operator">.</span><span class="routine">FieldByName</span><span class="operator">(</span><span class="string">&#39;city&#39;</span><span class="operator">)</span><span class="operator">.</span><span class="property">AsString</span><span class="operator">)</span><span class="operator">;</span>
+    <span class="keyword">end</span><span class="operator">)</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span></code></pre>
+</section>
+
+<p>That is clearer than manually dealing with <code>First</code>, <code>Next</code>, <code>Eof</code>, disabling the UI, and restoring the cursor position every time you iterate.</p>
+
+<p>You may already be thinking: &quot;Doesn&#39;t code using a utility function look very similar?&quot; The answer is: &quot;Yes, but with one key difference.&quot; Take a closer look:</p>
+
+<section class="code">
+<pre><code><span class="keyword">uses</span>
+  Data<span class="operator">.</span><span class="property">DB</span><span class="operator">,</span>
+  MyProjectUtilities<span class="operator">;</span>
+
+<span class="keyword">procedure</span> <span class="routine">CollectCityNames</span><span class="operator">(</span><span class="identifier">aDataSet</span><span class="operator">:</span> <span class="class-name">TDataSet</span><span class="operator">;</span> <span class="identifier">aNames</span><span class="operator">:</span> <span class="class-name">TStrings</span><span class="operator">)</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  <span class="routine">ForEachRow</span><span class="operator">(</span>aDataSet<span class="operator">,</span>
+    <span class="keyword">procedure</span>
+    <span class="keyword">begin</span>
+      aNames<span class="operator">.</span><span class="routine">Add</span><span class="operator">(</span>aDataSet<span class="operator">.</span><span class="routine">FieldByName</span><span class="operator">(</span><span class="string">&#39;city&#39;</span><span class="operator">)</span><span class="operator">.</span><span class="property">AsString</span><span class="operator">)</span><span class="operator">;</span>
+    <span class="keyword">end</span><span class="operator">)</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span></code></pre>
+</section>
+
+<p>You have probably noticed that in the second example, <code>ForEachRow</code> is a global function rather than a helper method. The difference looks subtle, but it matters a lot for readability and for how easily developers can discover helper functionality. In a larger codebase there may be many helper functions with similar or vague names. Turning that function into a helper makes it easier to find and makes its intent more obvious. When you see <code>aDataSet.ForEachRow</code>, you immediately know it is about iterating over rows in that dataset. With a global function like <code>ForEachRow(aDataSet, ...)</code>, you first need to know that the function exists and where to find it.</p>
+
+<p>The second important point is that helpers become a kind of SDK for your code. They are shared and reused across many projects. Because they are easy to access and clearly named, they help standardize code across a team. Developers do not have to wonder whether there is already a utility function for dataset iteration or whether they need to write their own. They add <code>TDataSetHelper</code> to the project and immediately get <code>ForEachRow</code>, along with other methods that can grow over time as needed. That makes the codebase more consistent and easier to maintain.</p>
+
+<h2>Readability Improves When Intent Moves Closer to the Type</h2>
+
+<p>The best helpers are not &quot;clever.&quot; They are boring in the right way.</p>
+
+<p>They move familiar operations next to the type they act on. That improves three things immediately:</p>
+
+<ul>
+    <li>discoverability, because methods appear in code completion</li>
+    <li>locality, because the operation stays attached to the object being used</li>
+    <li>naming, because helper method names usually express intent better than generic utility functions</li>
+</ul>
+<p>This matters more than it sounds. In a large codebase, readability is mostly about reducing the number of mental jumps a reader has to make.</p>
+
+<h2>Practical Rules for Maintainable Helpers</h2>
+
+<p>If you want helpers to improve readability without creating maintenance debt, a few rules help a lot.</p>
+
+<blockquote><strong>Rule of thumb:</strong> If a helper method does not feel like a natural extension of the type, it probably isn&#39;t. Keep the scope tight and the intent clear.</blockquote>
+
+<ol>
+    <li>Keep each helper cohesive
+        <ul>
+            <li>One type, one responsibility boundary. If a method does not feel like a natural extension of the target type, keep it out.</li>
+        </ul>
+    </li>
+    <li>Prefer helpers for repeated low-friction operations
+        <ul>
+            <li>Helpers are strongest for formatting, traversal, conversion, mapping, and convenience operations that appear across many modules.</li>
+        </ul>
+    </li>
+    <li>Use names that reveal behavior immediately
+        <ul>
+            <li>A helper method should be understandable without opening its implementation. <code>AsStringDateISO</code>, <code>CreateStream</code>, and <code>ForEachRow</code> are all better than vague names like <code>Convert</code>, <code>Process</code>, or <code>Handle</code>.</li>
+        </ul>
+    </li>
+    <li>Keep side effects obvious
+        <ul>
+            <li>If a helper mutates state, make that visible in the naming and usage. Readability drops when apparently harmless methods perform hidden persistence, network calls, or UI updates.</li>
+        </ul>
+    </li>
+    <li>Back helper behavior with tests
+        <ul>
+            <li>Small convenience methods are exactly the kind of code that ends up in many workflows. That means subtle regressions spread quickly. The DUnitX tests in this project are a good pattern: helper behavior is validated in small, focused units that mirror the source layout.</li>
+        </ul>
+    </li>
+</ol>
+<h2>Why This Still Matters in Delphi Projects</h2>
+
+<p>Delphi applications often have long lives. Many of them support desktop workflows, database-heavy forms, reporting, file exchange, and integration points that were built over years. In that environment, readability is not a luxury. It is a maintenance strategy.</p>
+
+<p>Class helpers are not a replacement for good architecture. They are a local design tool. When they are used with discipline, they make common operations easier to read, easier to write, and easier to standardize across a team.</p>
+
+<p>That is exactly where they are useful.</p>
+
+<h2>Final Thought</h2>
+
+<p>If you are looking at an older Delphi codebase full of utility procedures, repeated dataset loops, and hand-written bytes handling, class helpers are a practical place to start improving readability.</p>
+
+<p>Start small. Pick one type that already carries repetitive code. Add a few methods that clearly belong to that type. Keep the naming tight. Keep the scope disciplined. Then watch how much easier the calling code becomes to read.</p>
+
+<p>That is the real payoff.</p>
+
+<h2>Try It Next</h2>
+
+<p>Pick one repeated pattern in your codebase and move it into a focused helper.</p>
+
+<p>Good candidates are:</p>
+
+<ul>
+    <li>date formatting on <code>TDateTime</code></li>
+    <li>row iteration on <code>TDataSet</code></li>
+    <li>binary conversions on <code>TBytes</code></li>
+    <li>repetitive setup on VCL controls like <code>TStringGrid</code></li>
+</ul>
+<h2>More Examples</h2>
+
+<p><a href="https://github.com/bogdanpolak/class-helpers">https://github.com/bogdanpolak/class-helpers</a></p>
+
+<p>You can find more examples and practical advice in the project&#39;s GitHub repository, as well as in upcoming articles in this series that will be published over the coming weeks. The next posts will go deeper into specific helpers, their implementation and testing, and into ways to keep a helper library compatible with multiple Delphi versions.</p>
+
+        </article>
+      </div>
+
+      <footer class="footer">
+        <div class="footer-inner">
+          <p></p>
+        </div>
+      </footer>
+    </div>
+  </main>
+
+</body>
+
+</html>
