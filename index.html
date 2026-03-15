@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 | Signal Lost</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --bg-soft: #10233b;
+      --panel: rgba(8, 19, 35, 0.72);
+      --line: rgba(146, 201, 255, 0.2);
+      --text: #eaf5ff;
+      --muted: #9fb8d1;
+      --accent: #7df9d0;
+      --accent-2: #ffb86c;
+      --danger: #ff6f91;
+      --shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+      --mono: "SFMono-Regular", "Menlo", "Monaco", "Consolas", monospace;
+      --display: "Avenir Next", "Segoe UI", "Trebuchet MS", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+    }
+
+    body {
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 15% 20%, rgba(125, 249, 208, 0.16), transparent 28%),
+        radial-gradient(circle at 82% 18%, rgba(255, 184, 108, 0.16), transparent 24%),
+        radial-gradient(circle at 50% 75%, rgba(85, 132, 255, 0.18), transparent 34%),
+        linear-gradient(135deg, #030814 0%, #07111f 48%, #10233b 100%);
+      color: var(--text);
+      font-family: var(--display);
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    body::before {
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+      background-size: 34px 34px;
+      mask-image: radial-gradient(circle at center, black 45%, transparent 88%);
+      opacity: 0.3;
+    }
+
+    body::after {
+      background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+      transform: translateY(-100%);
+      animation: sweep 9s linear infinite;
+      opacity: 0.35;
+    }
+
+    .orbs {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      filter: blur(4px);
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.4;
+      animation: drift 14s ease-in-out infinite;
+    }
+
+    .orb-one {
+      width: 18rem;
+      height: 18rem;
+      top: 12%;
+      left: 8%;
+      background: rgba(125, 249, 208, 0.18);
+    }
+
+    .orb-two {
+      width: 24rem;
+      height: 24rem;
+      right: 7%;
+      bottom: 8%;
+      background: rgba(255, 111, 145, 0.16);
+      animation-delay: -5s;
+    }
+
+    .shell {
+      width: min(1040px, calc(100vw - 2rem));
+      min-height: min(680px, calc(100vh - 2rem));
+      padding: clamp(1.25rem, 2vw, 2rem);
+      display: grid;
+      place-items: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .panel {
+      width: 100%;
+      max-width: 980px;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: linear-gradient(180deg, rgba(18, 34, 60, 0.78), rgba(6, 13, 25, 0.9));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      overflow: hidden;
+      position: relative;
+      isolation: isolate;
+    }
+
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(120deg, rgba(125, 249, 208, 0.12), transparent 35%),
+        linear-gradient(300deg, rgba(255, 184, 108, 0.12), transparent 32%);
+      opacity: 0.9;
+      z-index: -1;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      font-family: var(--mono);
+      color: var(--muted);
+      font-size: 0.9rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .lights {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .lights span {
+      width: 0.8rem;
+      height: 0.8rem;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .lights span:nth-child(1) { background: #ff6b6b; }
+    .lights span:nth-child(2) { background: #ffd166; }
+    .lights span:nth-child(3) { background: #7df9d0; }
+
+    .content {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 0;
+    }
+
+    .hero,
+    .status {
+      padding: clamp(1.5rem, 4vw, 3rem);
+    }
+
+    .hero {
+      border-right: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      width: fit-content;
+      padding: 0.45rem 0.8rem;
+      border: 1px solid rgba(125, 249, 208, 0.24);
+      border-radius: 999px;
+      background: rgba(125, 249, 208, 0.08);
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 0.55rem;
+      height: 0.55rem;
+      border-radius: 999px;
+      background: currentColor;
+      box-shadow: 0 0 0 0 rgba(125, 249, 208, 0.5);
+      animation: pulse 1.8s infinite;
+    }
+
+    h1 {
+      margin: 1.15rem 0 0;
+      font-size: clamp(4.4rem, 16vw, 9.5rem);
+      line-height: 0.88;
+      letter-spacing: -0.07em;
+      text-transform: uppercase;
+    }
+
+    .title-accent {
+      display: block;
+      color: transparent;
+      -webkit-text-stroke: 1px rgba(234, 245, 255, 0.45);
+      text-shadow: 0 0 30px rgba(255, 255, 255, 0.08);
+    }
+
+    .lead {
+      max-width: 34rem;
+      margin: 1.2rem 0 0;
+      color: var(--muted);
+      font-size: clamp(1rem, 1.5vw, 1.15rem);
+      line-height: 1.7;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.9rem;
+      margin-top: 2rem;
+    }
+
+    .button {
+      appearance: none;
+      border: 0;
+      border-radius: 16px;
+      padding: 0.95rem 1.25rem;
+      font: inherit;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+    }
+
+    .button-primary {
+      background: linear-gradient(135deg, var(--accent), #8de0ff);
+      color: #03111e;
+      box-shadow: 0 16px 35px rgba(125, 249, 208, 0.24);
+    }
+
+    .button-secondary {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .meta {
+      display: grid;
+      gap: 0.9rem;
+      margin-top: 2rem;
+      font-family: var(--mono);
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .meta div {
+      display: flex;
+      gap: 0.6rem;
+      align-items: center;
+    }
+
+    .meta strong {
+      color: var(--accent-2);
+      font-weight: 600;
+    }
+
+    .status {
+      display: grid;
+      gap: 1rem;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0));
+      align-content: center;
+    }
+
+    .card {
+      padding: 1rem 1rem 1.05rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .card-label {
+      display: block;
+      margin-bottom: 0.55rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.74rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .signal {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .signal-row {
+      display: grid;
+      grid-template-columns: 5rem 1fr auto;
+      gap: 0.8rem;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .bar {
+      height: 0.65rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .bar::after {
+      content: "";
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--danger), var(--accent-2));
+      animation: glitch 2.4s steps(5) infinite;
+    }
+
+    .bar-low::after { width: 18%; }
+    .bar-mid::after { width: 34%; }
+    .bar-high::after { width: 52%; }
+
+    .code {
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      line-height: 1.7;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+
+    .code .dim {
+      color: var(--muted);
+    }
+
+    .footer-note {
+      margin-top: 0.4rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    @keyframes drift {
+      0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+      50% { transform: translate3d(2rem, -1.5rem, 0) scale(1.08); }
+    }
+
+    @keyframes sweep {
+      to { transform: translateY(100%); }
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(125, 249, 208, 0.45); }
+      70% { box-shadow: 0 0 0 10px rgba(125, 249, 208, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(125, 249, 208, 0); }
+    }
+
+    @keyframes glitch {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-5%); }
+      40% { transform: translateX(3%); }
+      60% { transform: translateX(-2%); }
+      80% { transform: translateX(1%); }
+    }
+
+    @media (max-width: 860px) {
+      body {
+        overflow: auto;
+      }
+
+      .shell {
+        min-height: auto;
+        padding: 1rem;
+      }
+
+      .content {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      h1 {
+        font-size: clamp(3.5rem, 21vw, 6rem);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="orbs" aria-hidden="true">
+    <div class="orb orb-one"></div>
+    <div class="orb orb-two"></div>
+  </div>
+
+  <main class="shell">
+    <section class="panel">
+      <div class="topbar">
+        <div class="lights" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <span>navigation.system / missing-route</span>
+      </div>
+
+      <div class="content">
+        <div class="hero">
+          <span class="eyebrow">Response Code 404</span>
+          <h1>
+            404
+            <span class="title-accent">Signal Lost</span>
+          </h1>
+          <p class="lead">
+            The page you requested drifted outside the mapped routes. The server is reachable,
+            but this address does not point to a valid document anymore.
+          </p>
+
+          <div class="actions">
+            <a class="button button-primary" href="/">Return Home</a>
+            <button class="button button-secondary" type="button" onclick="history.back()">Go Back</button>
+          </div>
+
+          <div class="meta" aria-label="diagnostic details">
+            <div><strong>Hint:</strong> check the URL for typos or stale links.</div>
+            <div><strong>Status:</strong> route not found, no content returned.</div>
+          </div>
+        </div>
+
+        <aside class="status" aria-label="status panel">
+          <div class="card">
+            <span class="card-label">Route Diagnostics</span>
+            <div class="signal">
+              <div class="signal-row">
+                <span>DNS</span>
+                <div class="bar bar-high"></div>
+                <span>OK</span>
+              </div>
+              <div class="signal-row">
+                <span>Host</span>
+                <div class="bar bar-mid"></div>
+                <span>OK</span>
+              </div>
+              <div class="signal-row">
+                <span>Path</span>
+                <div class="bar bar-low"></div>
+                <span>MISS</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <span class="card-label">Trace Output</span>
+            <div class="code"><span class="dim">&gt;</span> GET /requested/path
+<span class="dim">&gt;</span> looking for resource...
+<span class="dim">&gt;</span> resource map returned null
+<span class="dim">&gt;</span> failover page loaded</div>
+          </div>
+
+          <div class="card">
+            <span class="card-label">Next Move</span>
+            <p class="footer-note">
+              Start from the homepage or step back to the previous screen. If this link should exist,
+              it likely needs to be restored or redirected.
+            </p>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
