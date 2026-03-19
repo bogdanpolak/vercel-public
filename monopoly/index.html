@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Safe Refactoring with Software Seams</title>
+  <meta name="description" content="How understanding software seams can make refactoring safer and more manageable?">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;300;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./article.css">
+</head>
+
+<body>
+  <main class="page">
+    <div class="shell">
+      <header class="hero">
+        <div class="hero-grid">
+          <div>
+            <div class="meta" aria-label="Article metadata">
+              <span>2026-03-19</span>
+              <span>Bogdan Polak</span>
+              <span>en</span>
+            </div>
+            <h1>Safe Refactoring with Software Seams</h1>
+            <p class="hero-intro">How understanding software seams can make refactoring safer and more manageable?</p>
+          </div>
+          <figure class="cover">
+            <img src="images/seams-image.png" alt="A Monopoly-inspired seam as a railway switch, a squirrel engineer flipping the switch, and a blue bird pointing to a checklist for safe refactoring." loading="lazy">
+            <figcaption>A Monopoly-inspired seam as a railway switch, a squirrel engineer flipping the switch, and a blue bird pointing to a checklist for safe refactoring.</figcaption>
+          </figure>
+        </div>
+      </header>
+
+      <div class="article-wrap">
+        <article class="content">
+          
+<h1>Software Seam</h1>
+
+<p>Michael Feathers coined the term &quot;seam&quot; in the context of legacy code. His definition is short, but it can feel abstract on first read:</p>
+
+<blockquote class="bigger">&quot;A seam is a place where you can alter behavior in your program without editing in that place.&quot;</blockquote>
+
+<p>In simpler words:</p>
+
+<ul>
+    <li>a seam is a safe switching point</li>
+    <li>it lets you change what happens next</li>
+    <li>it does that without rewriting the whole area around it</li>
+</ul>
+<p>That is why seams matter so much in refactoring. When code is hard to change, a seam gives you one controlled place where you can introduce a new path.</p>
+
+<h2>A Real-Life Analogy</h2>
+
+<p>Think about a jacket with a zipper.</p>
+
+<p>The zipper is not the jacket itself. It is the place where you can open, close, or replace how the two sides connect without cutting the whole jacket apart.</p>
+
+<p>Software seams work in a similar way:</p>
+
+<ul>
+    <li>the jacket is the existing codebase</li>
+    <li>the zipper is the seam</li>
+    <li>opening or redirecting the zipper is how you change behavior safely</li>
+</ul>
+<p>Another analogy for this Monopoly project is a railway switch. The tracks already exist, but one small switch decides which direction the train takes. A seam is that switch.</p>
+
+<figure class="cover">
+  <img src="images/seam-analogy-zipper.png" alt="Image of a railway switch: track is codebase, switch is seam, zipper in jacket: jacket is codebase, zipper is seam" loading="lazy">
+  <figcaption>
+    1. Zipper: jacket is a codebase, zipper is a seam<br>
+    2. Railway switch: track is a codebase, switch is a seam
+  </figcaption>
+</figure>
+
+
+<h2>Why Feathers Cares About Seams</h2>
+
+<p>Feathers&#39; main problem was legacy code: code that is risky to change because you do not yet have safe feedback. Often the code is tightly connected to too many things at once:</p>
+
+<ul>
+    <li>global functions</li>
+    <li>external systems</li>
+    <li>hard-coded dependencies</li>
+    <li>long call chains</li>
+    <li>state spread across many files</li>
+</ul>
+<p>If you change everything at once, you do not know what broke.</p>
+
+<p>A seam solves that by giving you one narrow insertion point. Once you have that point, you can:</p>
+
+<ul>
+    <li>break a dependency for tests</li>
+    <li>redirect a call to new code</li>
+    <li>add observability</li>
+    <li>refactor in smaller steps</li>
+</ul>
+<p>Martin Fowler adds another useful term: the enabling point. That is the place where you choose which behavior to use.</p>
+
+<p>So there are really two parts:</p>
+
+<ul>
+    <li>the seam: the place where behavior can vary</li>
+    <li>the enabling point: the place where you choose the old path or the new path</li>
+</ul>
+<h2>The Simplest Way to Recognize a Seam</h2>
+
+<p>Ask this question:</p>
+
+<p>&quot;Can I make this code behave differently without rewriting the code right here?&quot;</p>
+
+<p>If the answer is yes, you probably found a seam.</p>
+
+<p>Examples:</p>
+
+<ul>
+    <li>pass a different function as an argument</li>
+    <li>call through a wrapper object instead of directly calling a dependency</li>
+    <li>move shared state into one object and let callers use that object</li>
+    <li>introduce a helper method that delegates to existing code for now</li>
+</ul>
+<h2>A Seam in This Monopoly Project</h2>
+
+<p>This project used to have game state spread across separate values:</p>
+
+<ul>
+    <li><code>players</code></li>
+    <li><code>board</code></li>
+    <li><code>rollDice</code></li>
+    <li>turn flow logic inside <code>playRound()</code></li>
+    <li>player movement in <code>movePlayer()</code></li>
+</ul>
+<p>Earlier style:</p>
+
+<section class="code">
+<pre><code><span class="keyword">const</span> board <span class="operator">=</span> <span class="routine">createBoard</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span>
+<span class="keyword">let</span> players <span class="operator">=</span> <span class="routine">createPlayers</span><span class="operator">(</span><span class="operator">[</span><span class="string">&quot;Luke Skywalker&quot;</span><span class="operator">,</span> <span class="string">&quot;Darth Vader&quot;</span><span class="operator">]</span><span class="operator">)</span><span class="operator">;</span>
+
+<span class="routine">showIntro</span><span class="operator">(</span>players<span class="operator">)</span><span class="operator">;</span>
+
+<span class="keyword">for</span> <span class="operator">(</span><span class="keyword">let</span> turn <span class="operator">=</span> <span class="number">0</span><span class="operator">;</span> turn <span class="operator">&lt;</span> <span class="number">10</span><span class="operator">;</span> turn<span class="operator">++</span><span class="operator">)</span> <span class="operator">{</span>
+  <span class="routine">playRound</span><span class="operator">(</span>players<span class="operator">,</span> board<span class="operator">)</span><span class="operator">;</span>
+<span class="operator">}</span>
+
+<span class="routine">showSummary</span><span class="operator">(</span>players<span class="operator">)</span><span class="operator">;</span></code></pre>
+</section>
+
+<p>That older style worked, but it spread game state across multiple arguments and multiple files. If you wanted to change turn order, current-player tracking, or active-player rules, you had to touch several places at once.</p>
+
+<p>The refactor introduced a safer seam:</p>
+
+<section class="code">
+<pre><code><span class="keyword">const</span> game <span class="operator">=</span> <span class="routine">createGame</span><span class="operator">(</span><span class="operator">[</span><span class="string">&quot;Luke Skywalker&quot;</span><span class="operator">,</span> <span class="string">&quot;Darth Vader&quot;</span><span class="operator">]</span><span class="operator">)</span><span class="operator">;</span>
+
+<span class="routine">showIntro</span><span class="operator">(</span>game<span class="operator">.</span><span class="property">players</span><span class="operator">)</span><span class="operator">;</span>
+
+<span class="keyword">for</span> <span class="operator">(</span><span class="keyword">let</span> turn <span class="operator">=</span> <span class="number">0</span><span class="operator">;</span> turn <span class="operator">&lt;</span> <span class="number">10</span><span class="operator">;</span> turn<span class="operator">++</span><span class="operator">)</span> <span class="operator">{</span>
+  <span class="routine">playRound</span><span class="operator">(</span>game<span class="operator">)</span><span class="operator">;</span>
+<span class="operator">}</span>
+
+<span class="routine">showSummary</span><span class="operator">(</span>game<span class="operator">.</span><span class="property">players</span><span class="operator">)</span><span class="operator">;</span></code></pre>
+</section>
+
+<p>That <code>game</code> object is now the seam used by the current codebase.</p>
+
+<p>Why?</p>
+
+<ul>
+    <li>it centralizes state in one object</li>
+    <li>it gives <code>movePlayer()</code> and <code>playRound()</code> one stable entry point</li>
+    <li>it lets you add behavior like <code>currentPlayer()</code> and <code>nextActivePlayer()</code> without rewriting every caller immediately</li>
+</ul>
+<h2>Before And After: Why This Is a Seam</h2>
+
+<p>Before the refactor, movement depended on several separate arguments:</p>
+
+<section class="code">
+<pre><code>movePlayer(player, steps, board, players);</code></pre>
+</section>
+
+<p>After the refactor, the call became:</p>
+
+<section class="code">
+<pre><code>movePlayer(game, steps);</code></pre>
+</section>
+
+<p>That is not just parameter shuffling.</p>
+
+<p>It creates a seam because <code>movePlayer()</code> no longer needs the caller to assemble every piece of state manually. The caller passes one object, and that object decides who the current player is:</p>
+
+<section class="code">
+<pre><code><span class="keyword">const</span> player <span class="operator">=</span> game<span class="operator">.</span><span class="property">currentPlayer</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span></code></pre>
+</section>
+
+<p>Now the enabling point moves upward. Instead of every caller deciding how to find the active player, the <code>game</code> object owns that decision.</p>
+
+<p>This is the key simplification:</p>
+
+<ul>
+    <li>before: many callers know too much</li>
+    <li>after: one seam hides that decision behind <code>game</code></li>
+</ul>
+<h2>Why This Refactor Is Safe</h2>
+
+<p>The attached refactoring note describes the intended sequence, and the implemented commits follow the same spirit.</p>
+
+<p>The sequence is:</p>
+
+<ol>
+    <li>introduce a new seam</li>
+    <li>prove it with focused tests</li>
+    <li>migrate one caller at a time</li>
+    <li>run the smallest useful test slice</li>
+    <li>run the full suite last</li>
+</ol>
+<p>This is classic safe refactoring.</p>
+
+<p>The important part is not &quot;introduce a big new design&quot;. The important part is &quot;create one new place where change can happen safely&quot;.</p>
+
+<p>In this project, that means:</p>
+
+<ol>
+    <li>create <code>createGame(playerNames)</code></li>
+    <li>verify the game object shape in isolation</li>
+    <li>move <code>movePlayer()</code> to <code>movePlayer(game, steps)</code></li>
+    <li>move <code>playRound()</code> to <code>playRound(game)</code></li>
+    <li>update <code>index.js</code></li>
+    <li>migrate <code>locationRules</code> through a temporary adapter seam until the final <code>handle(game)</code> API is safe to keep</li>
+</ol>
+<p>That is exactly what &quot;change one seam at a time&quot; means.</p>
+
+<h2>Code Sample Adapted To This Project</h2>
+
+<p>Here is a small example of how a seam helps you change behavior in one place instead of many places.</p>
+
+<h3>Without the seam</h3>
+
+<section class="code">
+<pre><code><span class="keyword">export</span> <span class="keyword">function</span> <span class="routine">playRound</span><span class="operator">(</span>players<span class="operator">,</span> board<span class="operator">)</span> <span class="operator">{</span>
+  <span class="keyword">for</span> <span class="operator">(</span><span class="keyword">const</span> player <span class="keyword">of</span> players<span class="operator">)</span> <span class="operator">{</span>
+    <span class="keyword">if</span> <span class="operator">(</span>player<span class="operator">.</span><span class="property">isBankrupt</span><span class="operator">)</span> <span class="operator">{</span>
+      <span class="keyword">continue</span><span class="operator">;</span>
+    <span class="operator">}</span>
+
+    <span class="routine">executePlayerTurn</span><span class="operator">(</span>player<span class="operator">,</span> board<span class="operator">,</span> players<span class="operator">)</span><span class="operator">;</span>
+  <span class="operator">}</span>
+<span class="operator">}</span></code></pre>
+</section>
+
+<p>This version works, but turn selection is mixed directly into round execution.</p>
+
+<h3>With the seam</h3>
+
+<section class="code">
+<pre><code><span class="keyword">export</span> <span class="keyword">function</span> <span class="routine">createGame</span><span class="operator">(</span>playerNames<span class="operator">)</span> <span class="operator">{</span>
+  <span class="keyword">const</span> players <span class="operator">=</span> <span class="routine">createPlayers</span><span class="operator">(</span>playerNames<span class="operator">)</span><span class="operator">;</span>
+
+  <span class="keyword">const</span> game <span class="operator">=</span> <span class="operator">{</span>
+    <span class="identifier">currentPlayerId</span><span class="operator">:</span> <span class="boolean">null</span><span class="operator">,</span>
+    players<span class="operator">,</span>
+    <span class="identifier">board</span><span class="operator">:</span> <span class="routine">createBoard</span><span class="operator">(</span><span class="operator">)</span><span class="operator">,</span>
+    rollDice<span class="operator">,</span>
+    <span class="routine">currentPlayer</span><span class="operator">(</span><span class="operator">)</span> <span class="operator">{</span>
+      <span class="keyword">return</span> <span class="keyword">this</span><span class="operator">.</span><span class="property">players</span><span class="operator">.</span><span class="property">find</span><span class="operator">(</span><span class="operator">(</span>player<span class="operator">)</span> <span class="operator">=&gt;</span> player<span class="operator">.</span><span class="property">id</span> <span class="operator">===</span> <span class="keyword">this</span><span class="operator">.</span><span class="property">currentPlayerId</span><span class="operator">)</span> <span class="operator">??</span> <span class="boolean">null</span><span class="operator">;</span>
+    <span class="operator">}</span><span class="operator">,</span>
+    <span class="routine">getActivePlayers</span><span class="operator">(</span><span class="operator">)</span> <span class="operator">{</span>
+      <span class="keyword">return</span> <span class="keyword">this</span><span class="operator">.</span><span class="property">players</span><span class="operator">.</span><span class="property">filter</span><span class="operator">(</span><span class="operator">(</span>player<span class="operator">)</span> <span class="operator">=&gt;</span> <span class="operator">!</span>player<span class="operator">.</span><span class="property">isBankrupt</span><span class="operator">)</span><span class="operator">;</span>
+    <span class="operator">}</span><span class="operator">,</span>
+    <span class="routine">countActivePlayers</span><span class="operator">(</span><span class="operator">)</span> <span class="operator">{</span>
+      <span class="keyword">return</span> <span class="keyword">this</span><span class="operator">.</span><span class="property">getActivePlayers</span><span class="operator">(</span><span class="operator">)</span><span class="operator">.</span><span class="property">length</span><span class="operator">;</span>
+    <span class="operator">}</span><span class="operator">,</span>
+    <span class="routine">nextActivePlayer</span><span class="operator">(</span><span class="operator">)</span> <span class="operator">{</span>
+      <span class="keyword">if</span> <span class="operator">(</span><span class="keyword">this</span><span class="operator">.</span><span class="property">players</span><span class="operator">.</span><span class="property">length</span> <span class="operator">===</span> <span class="number">0</span><span class="operator">)</span> <span class="operator">{</span>
+        <span class="keyword">this</span><span class="operator">.</span><span class="property">currentPlayerId</span> <span class="operator">=</span> <span class="boolean">null</span><span class="operator">;</span>
+        <span class="keyword">return</span> <span class="boolean">false</span><span class="operator">;</span>
+      <span class="operator">}</span>
+
+      <span class="keyword">const</span> activePlayers <span class="operator">=</span> <span class="keyword">this</span><span class="operator">.</span><span class="property">getActivePlayers</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span>
+
+      <span class="keyword">if</span> <span class="operator">(</span>activePlayers<span class="operator">.</span><span class="property">length</span> <span class="operator">===</span> <span class="number">0</span><span class="operator">)</span> <span class="operator">{</span>
+        <span class="keyword">this</span><span class="operator">.</span><span class="property">currentPlayerId</span> <span class="operator">=</span> <span class="boolean">null</span><span class="operator">;</span>
+        <span class="keyword">return</span> <span class="boolean">false</span><span class="operator">;</span>
+      <span class="operator">}</span>
+
+      <span class="keyword">if</span> <span class="operator">(</span><span class="keyword">this</span><span class="operator">.</span><span class="property">currentPlayerId</span> <span class="operator">===</span> <span class="boolean">null</span><span class="operator">)</span> <span class="operator">{</span>
+        <span class="keyword">this</span><span class="operator">.</span><span class="property">currentPlayerId</span> <span class="operator">=</span> activePlayers<span class="operator">[</span><span class="number">0</span><span class="operator">]</span><span class="operator">.</span><span class="property">id</span><span class="operator">;</span>
+        <span class="keyword">return</span> <span class="boolean">true</span><span class="operator">;</span>
+      <span class="operator">}</span>
+
+      <span class="keyword">const</span> currentIndex <span class="operator">=</span> activePlayers<span class="operator">.</span><span class="property">findIndex</span><span class="operator">(</span>
+        <span class="operator">(</span>player<span class="operator">)</span> <span class="operator">=&gt;</span> player<span class="operator">.</span><span class="property">id</span> <span class="operator">===</span> <span class="keyword">this</span><span class="operator">.</span><span class="property">currentPlayerId</span><span class="operator">,</span>
+      <span class="operator">)</span><span class="operator">;</span>
+
+      <span class="keyword">if</span> <span class="operator">(</span>currentIndex <span class="operator">===</span> <span class="operator">-</span><span class="number">1</span><span class="operator">)</span> <span class="operator">{</span>
+        <span class="keyword">this</span><span class="operator">.</span><span class="property">currentPlayerId</span> <span class="operator">=</span> activePlayers<span class="operator">[</span><span class="number">0</span><span class="operator">]</span><span class="operator">.</span><span class="property">id</span><span class="operator">;</span>
+        <span class="keyword">return</span> <span class="boolean">true</span><span class="operator">;</span>
+      <span class="operator">}</span>
+
+      <span class="keyword">const</span> nextIndex <span class="operator">=</span> <span class="operator">(</span>currentIndex <span class="operator">+</span> <span class="number">1</span><span class="operator">)</span> <span class="operator">%</span> activePlayers<span class="operator">.</span><span class="property">length</span><span class="operator">;</span>
+      <span class="keyword">this</span><span class="operator">.</span><span class="property">currentPlayerId</span> <span class="operator">=</span> activePlayers<span class="operator">[</span>nextIndex<span class="operator">]</span><span class="operator">.</span><span class="property">id</span><span class="operator">;</span>
+      <span class="keyword">return</span> <span class="boolean">true</span><span class="operator">;</span>
+    <span class="operator">}</span><span class="operator">,</span>
+  <span class="operator">}</span><span class="operator">;</span>
+
+  <span class="keyword">return</span> game<span class="operator">;</span>
+<span class="operator">}</span></code></pre>
+</section>
+
+<p>Then <code>playRound()</code> can depend on that seam:</p>
+
+<section class="code">
+<pre><code><span class="keyword">export</span> <span class="keyword">function</span> <span class="routine">playRound</span><span class="operator">(</span>game<span class="operator">)</span> <span class="operator">{</span>
+  <span class="keyword">const</span> turnsToPlay <span class="operator">=</span> game<span class="operator">.</span><span class="property">countActivePlayers</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span>
+
+  <span class="keyword">if</span> <span class="operator">(</span>turnsToPlay <span class="operator">===</span> <span class="number">0</span><span class="operator">)</span> <span class="operator">{</span>
+    game<span class="operator">.</span><span class="property">currentPlayerId</span> <span class="operator">=</span> <span class="boolean">null</span><span class="operator">;</span>
+    <span class="keyword">return</span><span class="operator">;</span>
+  <span class="operator">}</span>
+
+  game<span class="operator">.</span><span class="property">currentPlayerId</span> <span class="operator">=</span> <span class="boolean">null</span><span class="operator">;</span>
+
+  <span class="keyword">for</span> <span class="operator">(</span><span class="keyword">let</span> turn <span class="operator">=</span> <span class="number">0</span><span class="operator">;</span> turn <span class="operator">&lt;</span> turnsToPlay<span class="operator">;</span> turn<span class="operator">++</span><span class="operator">)</span> <span class="operator">{</span>
+    <span class="keyword">if</span> <span class="operator">(</span><span class="operator">!</span>game<span class="operator">.</span><span class="property">nextActivePlayer</span><span class="operator">(</span><span class="operator">)</span><span class="operator">)</span> <span class="operator">{</span>
+      <span class="keyword">return</span><span class="operator">;</span>
+    <span class="operator">}</span>
+
+    <span class="routine">executePlayerTurn</span><span class="operator">(</span>game<span class="operator">)</span><span class="operator">;</span>
+  <span class="operator">}</span>
+<span class="operator">}</span></code></pre>
+</section>
+
+<p>This design is easier to test because state and turn navigation now live behind one object.</p>
+
+<h2>A Second Seam: The Temporary Adapter</h2>
+
+<p>Module <code>locationRules</code> exports object <code>locationRules</code> that has <code>handle(game)</code> method. Function <code>handle()</code> manages all location-based Monopoly rules, e.g., rent collection, property purchases. It depends on the <code>game</code> seam to get the current player and board state.</p>
+
+<p>The final codebase also shows a smaller seam inside the migration.</p>
+
+<p>The location rules originally needed separate values such as:</p>
+
+<ul>
+    <li><code>players</code></li>
+    <li><code>board</code></li>
+    <li><code>tile</code></li>
+    <li><code>currentPlayer</code></li>
+</ul>
+<p>The safe migration path was:</p>
+
+<ol>
+    <li>keep the old behavior available</li>
+    <li>add a game-based wrapper</li>
+    <li>migrate tests to the game fixture</li>
+    <li>collapse everything to the final <code>handle(game)</code> API</li>
+</ol>
+<p>That temporary adapter seam is useful to study because it shows that a seam does not need to be permanent. Sometimes the safest move is to add a short-lived bridge and remove it once the new call path is stable.</p>
+
+<h2>What Makes This Better For Tests</h2>
+
+<p>A seam is valuable when it reduces setup noise.</p>
+
+<p>Without the seam, a test often has to build and coordinate several values:</p>
+
+<section class="code">
+<pre><code><span class="keyword">const</span> board <span class="operator">=</span> <span class="routine">createBoard</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span>
+<span class="keyword">const</span> players <span class="operator">=</span> <span class="routine">createPlayers</span><span class="operator">(</span><span class="operator">[</span><span class="string">&quot;Luke&quot;</span><span class="operator">,</span> <span class="string">&quot;Leia&quot;</span><span class="operator">]</span><span class="operator">)</span><span class="operator">;</span>
+<span class="keyword">const</span> player <span class="operator">=</span> players<span class="operator">[</span><span class="number">0</span><span class="operator">]</span><span class="operator">;</span>
+
+<span class="routine">movePlayer</span><span class="operator">(</span>player<span class="operator">,</span> <span class="number">2</span><span class="operator">,</span> board<span class="operator">,</span> players<span class="operator">)</span><span class="operator">;</span></code></pre>
+</section>
+
+<p>With the seam, the test can express intent more directly:</p>
+
+<section class="code">
+<pre><code><span class="keyword">const</span> game <span class="operator">=</span> <span class="routine">createGame</span><span class="operator">(</span><span class="operator">[</span><span class="string">&quot;Luke&quot;</span><span class="operator">,</span> <span class="string">&quot;Leia&quot;</span><span class="operator">]</span><span class="operator">)</span><span class="operator">;</span>
+game<span class="operator">.</span><span class="property">currentPlayerId</span> <span class="operator">=</span> game<span class="operator">.</span><span class="property">players</span><span class="operator">[</span><span class="number">0</span><span class="operator">]</span><span class="operator">.</span><span class="property">id</span><span class="operator">;</span>
+
+<span class="routine">movePlayer</span><span class="operator">(</span>game<span class="operator">,</span> <span class="number">2</span><span class="operator">)</span><span class="operator">;</span></code></pre>
+</section>
+
+<p>That is simpler because the test now focuses on the behavior under test, not on passing around every internal dependency.</p>
+
+<h2>A Good Mental Model</h2>
+
+<p>Do not think of a seam as &quot;yet another abstraction&quot;.</p>
+
+<p>Think of it as:</p>
+
+<ul>
+    <li>a controlled join</li>
+    <li>a safe switch</li>
+    <li>a place to redirect behavior</li>
+</ul>
+<p>If an abstraction does not help you change behavior safely, it may still be useful, but it is not a very good seam.</p>
+
+<h2>Common Misunderstanding</h2>
+
+<p>People sometimes hear &quot;introduce a seam&quot; and think it means a huge rewrite.</p>
+
+<p>Usually it means the opposite.</p>
+
+<p>A seam should make the next change smaller.</p>
+
+<p>In this Monopoly example, <code>createGame()</code> and the temporary <code>locationRules</code> adapter are not valuable because they are &quot;more object-oriented&quot;. They are valuable because they let the refactor proceed in narrow, testable steps.</p>
+
+<p>That is the heart of Feathers&#39; idea.</p>
+
+<h2>Practical Rule Of Thumb</h2>
+
+<p>When code feels risky, do not start by redesigning everything.</p>
+
+<p>Start by asking:</p>
+
+<ol>
+    <li>Where can I introduce one small switching point?</li>
+    <li>How can I prove that point with a focused test?</li>
+    <li>Which caller can I migrate next without changing behavior?</li>
+</ol>
+<p>If you can answer those three questions, you are already using seams well.</p>
+
+<h2>References</h2>
+
+<ol>
+    <li>Michael Feathers, &quot;Testing Effectively with Legacy Code&quot; (InformIT, Jan 21 2005), especially the section defining a seam and showing object seams: <a href="https://www.informit.com/articles/article.aspx?p=359417&amp;seqNum=2">https://www.informit.com/articles/article.aspx?p=359417&amp;seqNum=2</a></li>
+    <li>Martin Fowler, &quot;Legacy Seam&quot; (Jan 4 2024), for the modern explanation of seams and enabling points: <a href="https://martinfowler.com/bliki/LegacySeam.html">https://martinfowler.com/bliki/LegacySeam.html</a></li>
+    <li>Nicolas Carlo, &quot;The key points of Working Effectively with Legacy Code&quot;, for a simplified secondary summary of seams, tests, sprout, and wrap techniques: <a href="https://understandlegacycode.com/blog/key-points-of-working-effectively-with-legacy-code/">https://understandlegacycode.com/blog/key-points-of-working-effectively-with-legacy-code/</a></li>
+</ol>
+<h2>Closing Thought</h2>
+
+<p>A seam is not magic. It is just a carefully chosen place to make change smaller.</p>
+
+<p>In this project, the implemented <code>game</code> object is a good seam because it moves state and turn decisions into one place, and that makes the rest of the refactor safer.</p>
+
+
+        </article>
+      </div>
+
+      <footer class="footer">
+        <div class="footer-inner">
+          <p></p>
+        </div>
+      </footer>
+    </div>
+  </main>
+
+  <script src="../scripts/add-copy-buttons.js"></script>
+
+</body>
+
+</html>
