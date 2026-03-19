@@ -40,7 +40,7 @@
 
 <p>Michael Feathers coined the term &quot;seam&quot; in the context of legacy code. His definition is short, but it can feel abstract on first read:</p>
 
-<blockquote class="bigger">&quot;A seam is a place where you can alter behavior in your program without editing in that place.&quot;</blockquote>
+<blockquote>&quot;A seam is a place where you can alter behavior in your program without editing in that place.&quot;</blockquote>
 
 <p>In simpler words:</p>
 
@@ -53,27 +53,23 @@
 
 <h2>A Real-Life Analogy</h2>
 
-<p>Think about a jacket with a zipper.</p>
+<p>Think about a railway switch.</p>
 
-<p>The zipper is not the jacket itself. It is the place where you can open, close, or replace how the two sides connect without cutting the whole jacket apart.</p>
+<p>The tracks already exist, but one small switch decides which direction the train takes. You do not rebuild the whole railway to change the route. You change the switch position.</p>
 
 <p>Software seams work in a similar way:</p>
 
 <ul>
-    <li>the jacket is the existing codebase</li>
-    <li>the zipper is the seam</li>
-    <li>opening or redirecting the zipper is how you change behavior safely</li>
+    <li>the track is the existing code path</li>
+    <li>the switch is the seam</li>
+    <li>the lever position is the enabling point where you choose one path or another</li>
 </ul>
-<p>Another analogy for this Monopoly project is a railway switch. The tracks already exist, but one small switch decides which direction the train takes. A seam is that switch.</p>
+<p>Key point to understand Software Seams is not connection point between two pieces (two code versions), but how easy   it&#39;s to choose which behavior runs this or another moment.</p>
 
 <figure class="cover">
-  <img src="images/seam-analogy-zipper.png" alt="Image of a railway switch: track is codebase, switch is seam, zipper in jacket: jacket is codebase, zipper is seam" loading="lazy">
-  <figcaption>
-    1. Zipper: jacket is a codebase, zipper is a seam<br>
-    2. Railway switch: track is a codebase, switch is a seam
-  </figcaption>
+  <img src="images/software_seams_railway_analogy.svg" alt="Image of a railway switch: track is codebase, switch is seam, lever position is the enabling point">
+  <figcaption>Image of a railway switch: track is codebase, switch is seam, lever position is the enabling point</figcaption>
 </figure>
-
 
 <h2>Why Feathers Cares About Seams</h2>
 
@@ -117,10 +113,18 @@
 <ul>
     <li>pass a different function as an argument</li>
     <li>call through a wrapper object instead of directly calling a dependency</li>
-    <li>move shared state into one object and let callers use that object</li>
     <li>introduce a helper method that delegates to existing code for now</li>
 </ul>
-<h2>A Seam in This Monopoly Project</h2>
+<p>Notice what is not automatically a seam:</p>
+
+<ul>
+    <li>moving state into one object</li>
+    <li>changing a function signature</li>
+    <li>adding an adapter only for migration</li>
+</ul>
+<p>Those can be useful refactorings, but they become seams only if they create a place where behavior can later be substituted without editing that call site.</p>
+
+<h2>Preparing a Seam in This Monopoly Project</h2>
 
 <p>This project used to have game state spread across separate values:</p>
 
@@ -133,7 +137,7 @@
 </ul>
 <p>Earlier style:</p>
 
-<section class="code">
+<section class="code" data-language="javascript">
 <pre><code><span class="keyword">const</span> board <span class="operator">=</span> <span class="routine">createBoard</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span>
 <span class="keyword">let</span> players <span class="operator">=</span> <span class="routine">createPlayers</span><span class="operator">(</span><span class="operator">[</span><span class="string">&quot;Luke Skywalker&quot;</span><span class="operator">,</span> <span class="string">&quot;Darth Vader&quot;</span><span class="operator">]</span><span class="operator">)</span><span class="operator">;</span>
 
@@ -148,9 +152,9 @@
 
 <p>That older style worked, but it spread game state across multiple arguments and multiple files. If you wanted to change turn order, current-player tracking, or active-player rules, you had to touch several places at once.</p>
 
-<p>The refactor introduced a safer seam:</p>
+<p>The refactor introduced a safer structure:</p>
 
-<section class="code">
+<section class="code" data-language="javascript">
 <pre><code><span class="keyword">const</span> game <span class="operator">=</span> <span class="routine">createGame</span><span class="operator">(</span><span class="operator">[</span><span class="string">&quot;Luke Skywalker&quot;</span><span class="operator">,</span> <span class="string">&quot;Darth Vader&quot;</span><span class="operator">]</span><span class="operator">)</span><span class="operator">;</span>
 
 <span class="routine">showIntro</span><span class="operator">(</span>game<span class="operator">.</span><span class="property">players</span><span class="operator">)</span><span class="operator">;</span>
@@ -162,44 +166,63 @@
 <span class="routine">showSummary</span><span class="operator">(</span>game<span class="operator">.</span><span class="property">players</span><span class="operator">)</span><span class="operator">;</span></code></pre>
 </section>
 
-<p>That <code>game</code> object is now the seam used by the current codebase.</p>
+<p>That <code>game</code> object is not itself a seam in Feathers&#39; sense. It is a state container and an software system boundary.</p>
 
-<p>Why?</p>
+<p>Why is it still useful?</p>
 
 <ul>
     <li>it centralizes state in one object</li>
     <li>it gives <code>movePlayer()</code> and <code>playRound()</code> one stable entry point</li>
-    <li>it lets you add behavior like <code>currentPlayer()</code> and <code>nextActivePlayer()</code> without rewriting every caller immediately</li>
 </ul>
-<h2>Before And After: Why This Is a Seam</h2>
+<p>That matters because this refactor creates room for actual seams around replaceable behavior. Once callers receive a <code>game</code> object, methods such as <code>game.rollDice()</code> or <code>game.currentPlayer()</code> can act as object seams if the caller can receive a different implementation without editing the caller.</p>
+
+<p>So the important distinction is:</p>
+
+<ul>
+    <li><code>createGame()</code> is a preparatory refactoring</li>
+    <li>the <code>game</code> object is a convenient boundary for state and behavior</li>
+    <li>the seam appears at the replaceable call, not in the data container itself</li>
+</ul>
+<h2>Before And After: Why This Change Helps</h2>
 
 <p>Before the refactor, movement depended on several separate arguments:</p>
 
-<section class="code">
+<section class="code" data-language="plain-text">
 <pre><code>movePlayer(player, steps, board, players);</code></pre>
 </section>
 
 <p>After the refactor, the call became:</p>
 
-<section class="code">
+<section class="code" data-language="plain-text">
 <pre><code>movePlayer(game, steps);</code></pre>
 </section>
 
-<p>That is not just parameter shuffling.</p>
+<p>That is still a useful change, but it is not the seam by itself. It is an API migration that prepares the code for seams.</p>
 
-<p>It creates a seam because <code>movePlayer()</code> no longer needs the caller to assemble every piece of state manually. The caller passes one object, and that object decides who the current player is:</p>
+<p>What it changes is dependency shape: <code>movePlayer()</code> no longer needs the caller to assemble every piece of state manually. The caller passes one object, and <code>movePlayer()</code> can now reach behavior through that object:</p>
 
-<section class="code">
+<section class="code" data-language="javascript">
 <pre><code><span class="keyword">const</span> player <span class="operator">=</span> game<span class="operator">.</span><span class="property">currentPlayer</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span></code></pre>
 </section>
 
-<p>Now the enabling point moves upward. Instead of every caller deciding how to find the active player, the <code>game</code> object owns that decision.</p>
+<p>Now we are closer to a true object seam. If <code>movePlayer()</code> depends on <code>game.currentPlayer()</code>, then the seam is that method call. The enabling point is wherever we decide which <code>currentPlayer()</code> implementation <code>movePlayer()</code> receives.</p>
 
-<p>This is the key simplification:</p>
+<p>For example, in a test you could supply a controlled implementation:</p>
+
+<section class="code" data-language="javascript">
+<pre><code><span class="keyword">const</span> game <span class="operator">=</span> <span class="routine">createGame</span><span class="operator">(</span><span class="operator">[</span><span class="string">&quot;Luke&quot;</span><span class="operator">,</span> <span class="string">&quot;Leia&quot;</span><span class="operator">]</span><span class="operator">)</span><span class="operator">;</span>
+game<span class="operator">.</span><span class="property">currentPlayer</span> <span class="operator">=</span> <span class="operator">(</span><span class="operator">)</span> <span class="operator">=&gt;</span> game<span class="operator">.</span><span class="property">players</span><span class="operator">[</span><span class="number">1</span><span class="operator">]</span><span class="operator">;</span>
+
+<span class="routine">movePlayer</span><span class="operator">(</span>game<span class="operator">,</span> <span class="number">2</span><span class="operator">)</span><span class="operator">;</span></code></pre>
+</section>
+
+<p><code>movePlayer()</code> does not change. The behavior changes because the test chose a different implementation at the enabling point.</p>
+
+<p>This is the key simplification produced by the refactor:</p>
 
 <ul>
     <li>before: many callers know too much</li>
-    <li>after: one seam hides that decision behind <code>game</code></li>
+    <li>after: one boundary makes it easier to introduce replaceable calls behind <code>game</code></li>
 </ul>
 <h2>Why This Refactor Is Safe</h2>
 
@@ -216,27 +239,27 @@
 </ol>
 <p>This is classic safe refactoring.</p>
 
-<p>The important part is not &quot;introduce a big new design&quot;. The important part is &quot;create one new place where change can happen safely&quot;.</p>
+<p>The important part is not &quot;introduce a big new design&quot;. The important part is &quot;prepare a place where behavior can later vary safely&quot;.</p>
 
 <p>In this project, that means:</p>
 
 <ol>
     <li>create <code>createGame(playerNames)</code></li>
     <li>verify the game object shape in isolation</li>
-    <li>move <code>movePlayer()</code> to <code>movePlayer(game, steps)</code></li>
-    <li>move <code>playRound()</code> to <code>playRound(game)</code></li>
+    <li>move <code>movePlayer()</code> to <code>movePlayer(game, steps)</code> so dependencies are routed through one boundary</li>
+    <li>move <code>playRound()</code> to <code>playRound(game)</code> for the same reason</li>
     <li>update <code>index.js</code></li>
-    <li>migrate <code>locationRules</code> through a temporary adapter seam until the final <code>handle(game)</code> API is safe to keep</li>
+    <li>migrate <code>locationRules</code> through a temporary adapter until the final <code>handle(game)</code> API is safe to keep</li>
 </ol>
-<p>That is exactly what &quot;change one seam at a time&quot; means.</p>
+<p>That is exactly what safe refactoring looks like: first prepare the boundary, then introduce or exploit seams at specific call sites.</p>
 
 <h2>Code Sample Adapted To This Project</h2>
 
-<p>Here is a small example of how a seam helps you change behavior in one place instead of many places.</p>
+<p>Here is a small example of how a preparatory refactor can make a later seam possible.</p>
 
 <h3>Without the seam</h3>
 
-<section class="code">
+<section class="code" data-language="javascript">
 <pre><code><span class="keyword">export</span> <span class="keyword">function</span> <span class="routine">playRound</span><span class="operator">(</span>players<span class="operator">,</span> board<span class="operator">)</span> <span class="operator">{</span>
   <span class="keyword">for</span> <span class="operator">(</span><span class="keyword">const</span> player <span class="keyword">of</span> players<span class="operator">)</span> <span class="operator">{</span>
     <span class="keyword">if</span> <span class="operator">(</span>player<span class="operator">.</span><span class="property">isBankrupt</span><span class="operator">)</span> <span class="operator">{</span>
@@ -250,9 +273,9 @@
 
 <p>This version works, but turn selection is mixed directly into round execution.</p>
 
-<h3>With the seam</h3>
+<h3>With the refactored boundary</h3>
 
-<section class="code">
+<section class="code" data-language="javascript">
 <pre><code><span class="keyword">export</span> <span class="keyword">function</span> <span class="routine">createGame</span><span class="operator">(</span>playerNames<span class="operator">)</span> <span class="operator">{</span>
   <span class="keyword">const</span> players <span class="operator">=</span> <span class="routine">createPlayers</span><span class="operator">(</span>playerNames<span class="operator">)</span><span class="operator">;</span>
 
@@ -307,9 +330,9 @@
 <span class="operator">}</span></code></pre>
 </section>
 
-<p>Then <code>playRound()</code> can depend on that seam:</p>
+<p>Then <code>playRound()</code> can depend on that boundary:</p>
 
-<section class="code">
+<section class="code" data-language="javascript">
 <pre><code><span class="keyword">export</span> <span class="keyword">function</span> <span class="routine">playRound</span><span class="operator">(</span>game<span class="operator">)</span> <span class="operator">{</span>
   <span class="keyword">const</span> turnsToPlay <span class="operator">=</span> game<span class="operator">.</span><span class="property">countActivePlayers</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span>
 
@@ -330,13 +353,30 @@
 <span class="operator">}</span></code></pre>
 </section>
 
-<p>This design is easier to test because state and turn navigation now live behind one object.</p>
+<p>This design is easier to test because state and turn navigation now live behind one object. But the seam is still not the <code>game</code> object itself. The seam appears when <code>playRound()</code> calls behavior that can be replaced without editing <code>playRound()</code>.</p>
 
-<h2>A Second Seam: The Temporary Adapter</h2>
+<p>For example, if <code>playRound()</code> rolls by calling <code>game.rollDice()</code>, then that call is an object seam:</p>
 
-<p>Module <code>locationRules</code> exports object <code>locationRules</code> that has <code>handle(game)</code> method. Function <code>handle()</code> manages all location-based Monopoly rules, e.g., rent collection, property purchases. It depends on the <code>game</code> seam to get the current player and board state.</p>
+<section class="code" data-language="javascript">
+<pre><code><span class="keyword">const</span> steps <span class="operator">=</span> game<span class="operator">.</span><span class="property">rollDice</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span></code></pre>
+</section>
 
-<p>The final codebase also shows a smaller seam inside the migration.</p>
+<p>And this is the enabling point in a test:</p>
+
+<section class="code" data-language="javascript">
+<pre><code><span class="keyword">const</span> game <span class="operator">=</span> <span class="routine">createGame</span><span class="operator">(</span><span class="operator">[</span><span class="string">&quot;Luke&quot;</span><span class="operator">,</span> <span class="string">&quot;Leia&quot;</span><span class="operator">]</span><span class="operator">)</span><span class="operator">;</span>
+game<span class="operator">.</span><span class="property">rollDice</span> <span class="operator">=</span> <span class="operator">(</span><span class="operator">)</span> <span class="operator">=&gt;</span> <span class="number">4</span><span class="operator">;</span>
+
+<span class="routine">playRound</span><span class="operator">(</span>game<span class="operator">)</span><span class="operator">;</span></code></pre>
+</section>
+
+<p>Again, <code>playRound()</code> stays untouched. The test changes behavior by swapping the implementation that the seam calls.</p>
+
+<h2>A Migration Aid: The Temporary Adapter</h2>
+
+<p>Module <code>locationRules</code> exports object <code>locationRules</code> that has <code>handle(game)</code> method. Function <code>handle()</code> manages all location-based Monopoly rules, e.g., rent collection and property purchases. It depends on the <code>game</code> boundary to get the current player and board state.</p>
+
+<p>The migration also used a temporary adapter.</p>
 
 <p>The location rules originally needed separate values such as:</p>
 
@@ -354,15 +394,15 @@
     <li>migrate tests to the game fixture</li>
     <li>collapse everything to the final <code>handle(game)</code> API</li>
 </ol>
-<p>That temporary adapter seam is useful to study because it shows that a seam does not need to be permanent. Sometimes the safest move is to add a short-lived bridge and remove it once the new call path is stable.</p>
+<p>That adapter is worth studying, but it is better described as a migration aid than as a seam. Its main job is compatibility while callers move from one API shape to another. It only becomes part of a seam story if it exposes a place where callers can choose alternate behavior without editing the adapter itself.</p>
 
 <h2>What Makes This Better For Tests</h2>
 
-<p>A seam is valuable when it reduces setup noise.</p>
+<p>A seam is valuable when it reduces setup noise and gives you a controlled way to substitute behavior.</p>
 
 <p>Without the seam, a test often has to build and coordinate several values:</p>
 
-<section class="code">
+<section class="code" data-language="javascript">
 <pre><code><span class="keyword">const</span> board <span class="operator">=</span> <span class="routine">createBoard</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span>
 <span class="keyword">const</span> players <span class="operator">=</span> <span class="routine">createPlayers</span><span class="operator">(</span><span class="operator">[</span><span class="string">&quot;Luke&quot;</span><span class="operator">,</span> <span class="string">&quot;Leia&quot;</span><span class="operator">]</span><span class="operator">)</span><span class="operator">;</span>
 <span class="keyword">const</span> player <span class="operator">=</span> players<span class="operator">[</span><span class="number">0</span><span class="operator">]</span><span class="operator">;</span>
@@ -370,9 +410,9 @@
 <span class="routine">movePlayer</span><span class="operator">(</span>player<span class="operator">,</span> <span class="number">2</span><span class="operator">,</span> board<span class="operator">,</span> players<span class="operator">)</span><span class="operator">;</span></code></pre>
 </section>
 
-<p>With the seam, the test can express intent more directly:</p>
+<p>With the refactored boundary, the test can express intent more directly:</p>
 
-<section class="code">
+<section class="code" data-language="javascript">
 <pre><code><span class="keyword">const</span> game <span class="operator">=</span> <span class="routine">createGame</span><span class="operator">(</span><span class="operator">[</span><span class="string">&quot;Luke&quot;</span><span class="operator">,</span> <span class="string">&quot;Leia&quot;</span><span class="operator">]</span><span class="operator">)</span><span class="operator">;</span>
 game<span class="operator">.</span><span class="property">currentPlayerId</span> <span class="operator">=</span> game<span class="operator">.</span><span class="property">players</span><span class="operator">[</span><span class="number">0</span><span class="operator">]</span><span class="operator">.</span><span class="property">id</span><span class="operator">;</span>
 
@@ -381,6 +421,8 @@ game<span class="operator">.</span><span class="property">currentPlayerId</span>
 
 <p>That is simpler because the test now focuses on the behavior under test, not on passing around every internal dependency.</p>
 
+<p>The important nuance is that simpler setup alone does not create a seam. The seam appears when the test can replace behavior behind that setup, for example by overriding <code>game.rollDice()</code> or <code>game.currentPlayer()</code>.</p>
+
 <h2>A Good Mental Model</h2>
 
 <p>Do not think of a seam as &quot;yet another abstraction&quot;.</p>
@@ -388,7 +430,7 @@ game<span class="operator">.</span><span class="property">currentPlayerId</span>
 <p>Think of it as:</p>
 
 <ul>
-    <li>a controlled join</li>
+    <li>a controlled switching point</li>
     <li>a safe switch</li>
     <li>a place to redirect behavior</li>
 </ul>
@@ -402,7 +444,7 @@ game<span class="operator">.</span><span class="property">currentPlayerId</span>
 
 <p>A seam should make the next change smaller.</p>
 
-<p>In this Monopoly example, <code>createGame()</code> and the temporary <code>locationRules</code> adapter are not valuable because they are &quot;more object-oriented&quot;. They are valuable because they let the refactor proceed in narrow, testable steps.</p>
+<p>In this Monopoly example, <code>createGame()</code> and the temporary <code>locationRules</code> adapter are not valuable because they are seams by themselves. They are valuable because they let the refactor proceed in narrow, testable steps and make real seams easier to introduce at method calls such as <code>game.rollDice()</code>.</p>
 
 <p>That is the heart of Feathers&#39; idea.</p>
 
@@ -430,7 +472,7 @@ game<span class="operator">.</span><span class="property">currentPlayerId</span>
 
 <p>A seam is not magic. It is just a carefully chosen place to make change smaller.</p>
 
-<p>In this project, the implemented <code>game</code> object is a good seam because it moves state and turn decisions into one place, and that makes the rest of the refactor safer.</p>
+<p>In this project, the implemented <code>game</code> object is a useful refactoring boundary. The actual seams are the replaceable calls made through that boundary, and the enabling points are the places where tests or callers choose which implementation those calls will use.</p>
 
 
         </article>

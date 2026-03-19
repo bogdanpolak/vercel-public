@@ -1,8 +1,7 @@
 (() => {
 	const projectDir = '/Users/bogdanpolak/Sources/github/vercel-public';
 	const defaultNodeFiles = [
-		projectDir + '/delphi-pl/class-helpers-readable-code-en.html',
-		projectDir + '/monopoly/software-seams.html'
+		projectDir + '/monopoly/software-seams.html',
 	];
 
 	const pascalReservedWords = new Set([

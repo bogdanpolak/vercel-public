@@ -26,19 +26,19 @@ That is why seams matter so much in refactoring. When code is hard to change, a 
 
 ## A Real-Life Analogy
 
-Think about a jacket with a zipper.
+Think about a railway switch.
 
-The zipper is not the jacket itself. It is the place where you can open, close, or replace how the two sides connect without cutting the whole jacket apart.
+The tracks already exist, but one small switch decides which direction the train takes. You do not rebuild the whole railway to change the route. You change the switch position.
 
 Software seams work in a similar way:
 
-- the jacket is the existing codebase
-- the zipper is the seam
-- opening or redirecting the zipper is how you change behavior safely
+- the track is the existing code path
+- the switch is the seam
+- the lever position is the enabling point where you choose one path or another
 
-Another analogy for this Monopoly project is a railway switch. The tracks already exist, but one small switch decides which direction the train takes. A seam is that switch.
+Key point to understand Software Seams is not connection point between two pieces (two code versions), but how easy   it's to choose which behavior runs this or another moment.
 
-![Image of a railway switch: track is codebase, switch is seam, zipper in jacket: jacket is codebase, zipper is seam](images/seam-analogy-zipper.png)
+![Image of a railway switch: track is codebase, switch is seam, lever position is the enabling point](images/software_seams_railway_analogy.svg)
 
 ## Why Feathers Cares About Seams
 
@@ -78,10 +78,17 @@ Examples:
 
 - pass a different function as an argument
 - call through a wrapper object instead of directly calling a dependency
-- move shared state into one object and let callers use that object
 - introduce a helper method that delegates to existing code for now
 
-## A Seam in This Monopoly Project
+Notice what is not automatically a seam:
+
+- moving state into one object
+- changing a function signature
+- adding an adapter only for migration
+
+Those can be useful refactorings, but they become seams only if they create a place where behavior can later be substituted without editing that call site.
+
+## Preparing a Seam in This Monopoly Project
 
 This project used to have game state spread across separate values:
 
@@ -108,7 +115,7 @@ showSummary(players);
 
 That older style worked, but it spread game state across multiple arguments and multiple files. If you wanted to change turn order, current-player tracking, or active-player rules, you had to touch several places at once.
 
-The refactor introduced a safer seam:
+The refactor introduced a safer structure:
 
 ```js
 const game = createGame(["Luke Skywalker", "Darth Vader"]);
@@ -122,15 +129,22 @@ for (let turn = 0; turn < 10; turn++) {
 showSummary(game.players);
 ```
 
-That `game` object is now the seam used by the current codebase.
+That `game` object is not itself a seam in Feathers' sense. It is a state container and an software system boundary.
 
-Why?
+Why is it still useful?
 
 - it centralizes state in one object
 - it gives `movePlayer()` and `playRound()` one stable entry point
-- it lets you add behavior like `currentPlayer()` and `nextActivePlayer()` without rewriting every caller immediately
 
-## Before And After: Why This Is a Seam
+That matters because this refactor creates room for actual seams around replaceable behavior. Once callers receive a `game` object, methods such as `game.rollDice()` or `game.currentPlayer()` can act as object seams if the caller can receive a different implementation without editing the caller.
+
+So the important distinction is:
+
+- `createGame()` is a preparatory refactoring
+- the `game` object is a convenient boundary for state and behavior
+- the seam appears at the replaceable call, not in the data container itself
+
+## Before And After: Why This Change Helps
 
 Before the refactor, movement depended on several separate arguments:
 
@@ -144,20 +158,31 @@ After the refactor, the call became:
 movePlayer(game, steps);
 ```
 
-That is not just parameter shuffling.
+That is still a useful change, but it is not the seam by itself. It is an API migration that prepares the code for seams.
 
-It creates a seam because `movePlayer()` no longer needs the caller to assemble every piece of state manually. The caller passes one object, and that object decides who the current player is:
+What it changes is dependency shape: `movePlayer()` no longer needs the caller to assemble every piece of state manually. The caller passes one object, and `movePlayer()` can now reach behavior through that object:
 
 ```js
 const player = game.currentPlayer();
 ```
 
-Now the enabling point moves upward. Instead of every caller deciding how to find the active player, the `game` object owns that decision.
+Now we are closer to a true object seam. If `movePlayer()` depends on `game.currentPlayer()`, then the seam is that method call. The enabling point is wherever we decide which `currentPlayer()` implementation `movePlayer()` receives.
 
-This is the key simplification:
+For example, in a test you could supply a controlled implementation:
+
+```js
+const game = createGame(["Luke", "Leia"]);
+game.currentPlayer = () => game.players[1];
+
+movePlayer(game, 2);
+```
+
+`movePlayer()` does not change. The behavior changes because the test chose a different implementation at the enabling point.
+
+This is the key simplification produced by the refactor:
 
 - before: many callers know too much
-- after: one seam hides that decision behind `game`
+- after: one boundary makes it easier to introduce replaceable calls behind `game`
 
 ## Why This Refactor Is Safe
 
@@ -173,22 +198,22 @@ The sequence is:
 
 This is classic safe refactoring.
 
-The important part is not "introduce a big new design". The important part is "create one new place where change can happen safely".
+The important part is not "introduce a big new design". The important part is "prepare a place where behavior can later vary safely".
 
 In this project, that means:
 
 1. create `createGame(playerNames)`
 2. verify the game object shape in isolation
-3. move `movePlayer()` to `movePlayer(game, steps)`
-4. move `playRound()` to `playRound(game)`
+3. move `movePlayer()` to `movePlayer(game, steps)` so dependencies are routed through one boundary
+4. move `playRound()` to `playRound(game)` for the same reason
 5. update `index.js`
-6. migrate `locationRules` through a temporary adapter seam until the final `handle(game)` API is safe to keep
+6. migrate `locationRules` through a temporary adapter until the final `handle(game)` API is safe to keep
 
-That is exactly what "change one seam at a time" means.
+That is exactly what safe refactoring looks like: first prepare the boundary, then introduce or exploit seams at specific call sites.
 
 ## Code Sample Adapted To This Project
 
-Here is a small example of how a seam helps you change behavior in one place instead of many places.
+Here is a small example of how a preparatory refactor can make a later seam possible.
 
 ### Without the seam
 
@@ -206,7 +231,7 @@ export function playRound(players, board) {
 
 This version works, but turn selection is mixed directly into round execution.
 
-### With the seam
+### With the refactored boundary
 
 ```js
 export function createGame(playerNames) {
@@ -263,7 +288,7 @@ export function createGame(playerNames) {
 }
 ```
 
-Then `playRound()` can depend on that seam:
+Then `playRound()` can depend on that boundary:
 
 ```js
 export function playRound(game) {
@@ -286,13 +311,30 @@ export function playRound(game) {
 }
 ```
 
-This design is easier to test because state and turn navigation now live behind one object.
+This design is easier to test because state and turn navigation now live behind one object. But the seam is still not the `game` object itself. The seam appears when `playRound()` calls behavior that can be replaced without editing `playRound()`.
 
-## A Second Seam: The Temporary Adapter
+For example, if `playRound()` rolls by calling `game.rollDice()`, then that call is an object seam:
 
-Module `locationRules` exports object `locationRules` that has `handle(game)` method. Function `handle()` manages all location-based Monopoly rules, e.g., rent collection, property purchases. It depends on the `game` seam to get the current player and board state.
+```js
+const steps = game.rollDice();
+```
 
-The final codebase also shows a smaller seam inside the migration.
+And this is the enabling point in a test:
+
+```js
+const game = createGame(["Luke", "Leia"]);
+game.rollDice = () => 4;
+
+playRound(game);
+```
+
+Again, `playRound()` stays untouched. The test changes behavior by swapping the implementation that the seam calls.
+
+## A Migration Aid: The Temporary Adapter
+
+Module `locationRules` exports object `locationRules` that has `handle(game)` method. Function `handle()` manages all location-based Monopoly rules, e.g., rent collection and property purchases. It depends on the `game` boundary to get the current player and board state.
+
+The migration also used a temporary adapter.
 
 The location rules originally needed separate values such as:
 
@@ -308,11 +350,11 @@ The safe migration path was:
 3. migrate tests to the game fixture
 4. collapse everything to the final `handle(game)` API
 
-That temporary adapter seam is useful to study because it shows that a seam does not need to be permanent. Sometimes the safest move is to add a short-lived bridge and remove it once the new call path is stable.
+That adapter is worth studying, but it is better described as a migration aid than as a seam. Its main job is compatibility while callers move from one API shape to another. It only becomes part of a seam story if it exposes a place where callers can choose alternate behavior without editing the adapter itself.
 
 ## What Makes This Better For Tests
 
-A seam is valuable when it reduces setup noise.
+A seam is valuable when it reduces setup noise and gives you a controlled way to substitute behavior.
 
 Without the seam, a test often has to build and coordinate several values:
 
@@ -324,7 +366,7 @@ const player = players[0];
 movePlayer(player, 2, board, players);
 ```
 
-With the seam, the test can express intent more directly:
+With the refactored boundary, the test can express intent more directly:
 
 ```js
 const game = createGame(["Luke", "Leia"]);
@@ -335,13 +377,15 @@ movePlayer(game, 2);
 
 That is simpler because the test now focuses on the behavior under test, not on passing around every internal dependency.
 
+The important nuance is that simpler setup alone does not create a seam. The seam appears when the test can replace behavior behind that setup, for example by overriding `game.rollDice()` or `game.currentPlayer()`.
+
 ## A Good Mental Model
 
 Do not think of a seam as "yet another abstraction".
 
 Think of it as:
 
-- a controlled join
+- a controlled switching point
 - a safe switch
 - a place to redirect behavior
 
@@ -355,7 +399,7 @@ Usually it means the opposite.
 
 A seam should make the next change smaller.
 
-In this Monopoly example, `createGame()` and the temporary `locationRules` adapter are not valuable because they are "more object-oriented". They are valuable because they let the refactor proceed in narrow, testable steps.
+In this Monopoly example, `createGame()` and the temporary `locationRules` adapter are not valuable because they are seams by themselves. They are valuable because they let the refactor proceed in narrow, testable steps and make real seams easier to introduce at method calls such as `game.rollDice()`.
 
 That is the heart of Feathers' idea.
 
@@ -381,4 +425,5 @@ If you can answer those three questions, you are already using seams well.
 
 A seam is not magic. It is just a carefully chosen place to make change smaller.
 
-In this project, the implemented `game` object is a good seam because it moves state and turn decisions into one place, and that makes the rest of the refactor safer.
+In this project, the implemented `game` object is a useful refactoring boundary. The actual seams are the replaceable calls made through that boundary, and the enabling points are the places where tests or callers choose which implementation those calls will use.
+
