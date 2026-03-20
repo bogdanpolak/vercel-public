@@ -1,7 +1,7 @@
 (() => {
 	const projectDir = '/Users/bogdanpolak/Sources/github/vercel-public';
 	const defaultNodeFiles = [
-		projectDir + '/monopoly/software-seams.html',
+		projectDir + '/monopoly/refactoring-parameter-object.html',
 	];
 
 	const pascalReservedWords = new Set([
