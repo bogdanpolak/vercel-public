@@ -1,8 +1,6 @@
+#!/usr/bin/env node
+
 (() => {
-	const projectDir = '/Users/bogdanpolak/Sources/github/vercel-public';
-	const defaultNodeFiles = [
-		projectDir + '/monopoly/refactoring-parameter-object.html',
-	];
 
 	const pascalReservedWords = new Set([
 		'and', 'array', 'as', 'asm', 'begin', 'case', 'class', 'const', 'constructor', 'destructor',
@@ -478,8 +476,8 @@
 			return sectionMarkup;
 		}
 
-		const sectionOpenTagMatch = sectionMarkup.match(/^<section\b[^>]*>/);
-		const sectionOpenTag = sectionOpenTagMatch?.[0] || '<section class="code">';
+		const sectionOpenTagMatch = sectionMarkup.match(/^<div\b[^>]*>/);
+		const sectionOpenTag = sectionOpenTagMatch?.[0] || '<div class="code">';
 		const decoded = decodeHtmlEntities(codeMatch[1]);
 		const language = detectLanguage(decoded);
 		const nextSectionOpenTag = sectionOpenTag.includes('data-language=')
@@ -497,20 +495,35 @@
 
 	function highlightFiles(files) {
 		const fs = require('fs');
+		let hasMissingFiles = false;
 
 		for (const file of files) {
 			if (!fs.existsSync(file)) {
+				console.error(`missing file: ${file}`);
+				hasMissingFiles = true;
 				continue;
 			}
 
 			let html = fs.readFileSync(file, 'utf8');
-			html = html.replace(/<section\b[^>]*class="[^"]*\bcode\b[^"]*"[^>]*>[\s\S]*?<\/section>/g, highlightSectionCode);
+			html = html.replace(/<div\b[^>]*class="[^"]*\bcode\b[^"]*"[^>]*>[\s\S]*?<\/div>/g, highlightSectionCode);
 			fs.writeFileSync(file, html);
 			console.log(`highlighted ${file}`);
 		}
+
+		return !hasMissingFiles;
 	}
 
 	if (typeof module !== 'undefined' && typeof require === 'function' && typeof process !== 'undefined' && require.main === module) {
-		highlightFiles(defaultNodeFiles);
+		const files = process.argv.slice(2);
+
+		if (files.length === 0) {
+			console.error('Usage: highlight-code-blocks.js <file> [file ...]');
+			process.exitCode = 1;
+			return;
+		}
+
+		if (!highlightFiles(files)) {
+			process.exitCode = 1;
+		}
 	}
 })();
