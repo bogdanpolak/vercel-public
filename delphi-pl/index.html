@@ -594,6 +594,7 @@
         }
 
         activeLanguage = nextLanguage;
+        document.getElementById('section-title').textContent = activeLanguage === 'en' ? 'Articles' : 'Artykuły';
         renderPosts(activeLanguage);
       });
     });
