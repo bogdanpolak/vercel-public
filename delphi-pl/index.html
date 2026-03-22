@@ -4,8 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Delphi Articles Index</title>
-  <meta name="description" content="A bilingual index of Delphi articles with English and Polish versions.">
+  <title>Delphi PL Blog</title>
+  <meta name="description" content="Polish Delphi Community blog. Articles about writing better code, refactoring, and software design in Delphi.">
   <style>
     :root {
       --page-top: #f4efe7;
@@ -546,13 +546,13 @@
     }
 
     function renderPostCard(post) {
-      const labelCoverImageLSlot = 'Cover image slot';
-      const labelDate = 'Date';
-      const labelAuthor = 'Author';
-      const labelLanguage = 'Language';
+      const labelCoverImageLSlot = activeLanguage === 'en' ? 'Cover image slot' : 'Slot obrazu okładki';
+      const labelDate = activeLanguage === 'en' ? 'Date' : 'Data';
+      const labelAuthor = activeLanguage === 'en' ? 'Author' : 'Autor';
+      const labelLanguage = activeLanguage === 'en' ? 'Language' : 'Język';
       const labelLanguageName = activeLanguage === 'en' ? 'English' : 'Polski';
-      const labelImagePlaceholder = 'PNG Placeholder';
-      const labelOpenArticle = 'Open article';
+      const labelImagePlaceholder = activeLanguage === 'en' ? 'PNG Placeholder' : 'Miejsce na PNG';
+      const labelOpenArticle = activeLanguage === 'en' ? 'Open article' : 'Otwórz artykuł';
 
       return `
         <article class="post-card">
