@@ -27,7 +27,7 @@
             <p class="hero-intro">How Class Helpers can improve code readability in Delphi projects?</p>
           </div>
           <figure class="cover">
-            <img src="images/post001-image-001.png" alt="A squirrel works at a computer while a blue bird inspects the code readability." loading="lazy">
+            <img src="images/001-cover-image.png" alt="A squirrel works at a computer while a blue bird inspects the code readability." loading="lazy">
             <figcaption>A squirrel works at a computer while a blue bird inspects the code readability.</figcaption>
           </figure>
         </div>
@@ -55,7 +55,7 @@
 
 <p>A procedural style often produces code like this:</p>
 
-<section class="code">
+<div class="code" data-language="object-pascal">
 <pre><code><span class="keyword">function</span> <span class="routine">FileToFormattedBase64</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">AFileName</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">)</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">;</span>
 <span class="keyword">var</span>
   <span class="identifier">ms</span><span class="operator">:</span> <span class="class-name">TMemoryStream</span><span class="operator">;</span>
@@ -70,11 +70,11 @@
     ms<span class="operator">.</span><span class="property">Free</span><span class="operator">;</span>
   <span class="keyword">end</span><span class="operator">;</span>
 <span class="keyword">end</span><span class="operator">;</span></code></pre>
-</section>
+</div>
 
 <p>There is nothing especially difficult to understand here, but the logic is fragmented. Now compare it with a helper-oriented style:</p>
 
-<section class="code">
+<div class="code" data-language="object-pascal">
 <pre><code><span class="keyword">function</span> <span class="routine">FileToFormattedBase64</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">AFileName</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">)</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">;</span>
 <span class="keyword">var</span>
   <span class="identifier">bytes</span><span class="operator">:</span> <span class="class-name">TBytes</span><span class="operator">;</span>
@@ -82,7 +82,7 @@
   bytes<span class="operator">.</span><span class="routine">LoadFromFile</span><span class="operator">(</span><span class="string">&#39;photo.png&#39;</span><span class="operator">)</span><span class="operator">;</span>
   <span class="identifier">Result</span> <span class="operator">:=</span> bytes<span class="operator">.</span><span class="property">GenerateBase64Code</span><span class="operator">;</span>
 <span class="keyword">end</span><span class="operator">;</span></code></pre>
-</section>
+</div>
 
 <p>The second example is closer to the problem domain. The operations are attached to the type that owns the data. That is the main value of helpers: they improve the shape of the code where it is used. The code also becomes more standardized, because instead of using <code>TMemoryStream</code>, the programmer works with a byte array that does not require manual memory management.</p>
 
@@ -110,7 +110,7 @@
 
 <p>For example, this helper signature is a good fit for bytes:</p>
 
-<section class="code">
+<div class="code" data-language="object-pascal">
 <pre><code><span class="keyword">type</span>
   <span class="class-name">TBytesHelper</span> <span class="operator">=</span> <span class="keyword">record</span> <span class="keyword">helper</span> <span class="keyword">for</span> <span class="class-name">TBytes</span>
   <span class="keyword">public</span>
@@ -118,18 +118,18 @@
     <span class="keyword">procedure</span> <span class="routine">SaveToFile</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">aFileName</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">)</span><span class="operator">;</span>
     <span class="keyword">function</span> <span class="routine">GenerateBase64Code</span><span class="operator">(</span><span class="identifier">aLineLength</span><span class="operator">:</span> <span class="type">Integer</span> <span class="operator">=</span> <span class="number">68</span><span class="operator">)</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">;</span>
   <span class="keyword">end</span><span class="operator">;</span></code></pre>
-</section>
+</div>
 
 <p>And this is a good fit for datasets:</p>
 
-<section class="code">
+<div class="code" data-language="object-pascal">
 <pre><code><span class="keyword">type</span>
   <span class="class-name">TDataSetHelper</span> <span class="operator">=</span> <span class="keyword">class</span> <span class="keyword">helper</span> <span class="keyword">for</span> <span class="class-name">TDataSet</span>
   <span class="keyword">public</span>
     <span class="keyword">procedure</span> <span class="routine">ForEachRow</span><span class="operator">(</span><span class="identifier">proc</span><span class="operator">:</span> <span class="class-name">TProc</span><span class="operator">)</span><span class="operator">;</span>
     <span class="keyword">function</span> <span class="routine">LoadData</span><span class="operator">&lt;</span><span class="identifier">T</span><span class="operator">:</span> <span class="keyword">class</span><span class="operator">,</span> <span class="keyword">constructor</span><span class="operator">&gt;</span><span class="operator">:</span> <span class="class-name">TObjectList</span><span class="operator">&lt;</span>T<span class="operator">&gt;</span><span class="operator">;</span>
   <span class="keyword">end</span><span class="operator">;</span></code></pre>
-</section>
+</div>
 
 <p>Neither helper changes what the underlying type is. They only make common operations easier to discover and easier to read.</p>
 
@@ -139,7 +139,7 @@
 
 <p>Without helpers, a team usually ends up with a utility unit full of global procedures. With a focused helper, the code becomes much more direct:</p>
 
-<section class="code">
+<div class="code" data-language="object-pascal">
 <pre><code><span class="keyword">uses</span>
   <span class="keyword">Helper</span><span class="operator">.</span><span class="class-name">TBytes</span><span class="operator">;</span>
 
@@ -150,7 +150,7 @@
   bytes<span class="operator">.</span><span class="routine">LoadFromFile</span><span class="operator">(</span><span class="string">&#39;report.bin&#39;</span><span class="operator">)</span><span class="operator">;</span>
   <span class="identifier">crc</span> <span class="operator">:=</span> bytes<span class="operator">.</span><span class="routine">GetSectorCRC32</span><span class="operator">(</span><span class="number">0</span><span class="operator">,</span> bytes<span class="operator">.</span><span class="property">Size</span><span class="operator">)</span><span class="operator">;</span>
 <span class="keyword">end</span><span class="operator">;</span></code></pre>
-</section>
+</div>
 
 <p>There are two readability wins here.</p>
 
@@ -166,7 +166,7 @@
 
 <p>For row iteration, this is easier to scan:</p>
 
-<section class="code">
+<div class="code" data-language="object-pascal">
 <pre><code><span class="keyword">uses</span>
   Data<span class="operator">.</span><span class="property">DB</span><span class="operator">,</span>
   <span class="keyword">Helper</span><span class="operator">.</span><span class="class-name">TDataSet</span><span class="operator">;</span>
@@ -179,13 +179,13 @@
       aNames<span class="operator">.</span><span class="routine">Add</span><span class="operator">(</span>aDataSet<span class="operator">.</span><span class="routine">FieldByName</span><span class="operator">(</span><span class="string">&#39;city&#39;</span><span class="operator">)</span><span class="operator">.</span><span class="property">AsString</span><span class="operator">)</span><span class="operator">;</span>
     <span class="keyword">end</span><span class="operator">)</span><span class="operator">;</span>
 <span class="keyword">end</span><span class="operator">;</span></code></pre>
-</section>
+</div>
 
 <p>That is clearer than manually dealing with <code>First</code>, <code>Next</code>, <code>Eof</code>, disabling the UI, and restoring the cursor position every time you iterate.</p>
 
 <p>You may already be thinking: &quot;Doesn&#39;t code using a utility function look very similar?&quot; The answer is: &quot;Yes, but with one key difference.&quot; Take a closer look:</p>
 
-<section class="code">
+<div class="code" data-language="object-pascal">
 <pre><code><span class="keyword">uses</span>
   Data<span class="operator">.</span><span class="property">DB</span><span class="operator">,</span>
   MyProjectUtilities<span class="operator">;</span>
@@ -198,7 +198,7 @@
       aNames<span class="operator">.</span><span class="routine">Add</span><span class="operator">(</span>aDataSet<span class="operator">.</span><span class="routine">FieldByName</span><span class="operator">(</span><span class="string">&#39;city&#39;</span><span class="operator">)</span><span class="operator">.</span><span class="property">AsString</span><span class="operator">)</span><span class="operator">;</span>
     <span class="keyword">end</span><span class="operator">)</span><span class="operator">;</span>
 <span class="keyword">end</span><span class="operator">;</span></code></pre>
-</section>
+</div>
 
 <p>You have probably noticed that in the second example, <code>ForEachRow</code> is a global function rather than a helper method. The difference looks subtle, but it matters a lot for readability and for how easily developers can discover helper functionality. In a larger codebase there may be many helper functions with similar or vague names. Turning that function into a helper makes it easier to find and makes its intent more obvious. When you see <code>aDataSet.ForEachRow</code>, you immediately know it is about iterating over rows in that dataset. With a global function like <code>ForEachRow(aDataSet, ...)</code>, you first need to know that the function exists and where to find it.</p>
 
@@ -294,6 +294,8 @@
       </footer>
     </div>
   </main>
+
+  <script src="add-copy-buttons.js"></script>
 
 </body>
 

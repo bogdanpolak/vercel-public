@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Safe Refactoring with the Introduce Parameter Object Pattern</title>
+  <meta name="description" content="How to safely replace several parameters with a single object so the code becomes easier to manage.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;300;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./article.css">
+</head>
+
+<body>
+  <main class="page">
+    <div class="shell">
+      <header class="hero">
+        <div class="hero-grid">
+          <div>
+            <div class="meta" aria-label="Article metadata">
+              <span>2026-03-23</span>
+              <span>Bogdan Polak</span>
+              <span>en</span>
+            </div>
+            <h1>Safe Refactoring with the Introduce Parameter Object Pattern</h1>
+            <p class="hero-intro">How to safely replace several parameters with a single object so the code becomes easier to manage.</p>
+          </div>
+          <figure class="cover">
+            <img src="images/002-cover-image.png" alt="Monopoly-inspired illustration of safely replacing multiple parameters with a single object in public function interfaces" loading="lazy">
+            <figcaption>Monopoly-inspired illustration of safely replacing multiple parameters with a single object in public function interfaces</figcaption>
+          </figure>
+        </div>
+      </header>
+
+      <div class="article-wrap">
+        <article class="content">
+          
+<h1>Safe Refactoring with the Introduce Parameter Object Pattern</h1>
+
+<h2>Motivation</h2>
+
+<p>Refactoring can feel risky, especially in code that is not well protected by unit tests, which is why the standard recommendation is to build a dense safety net of tests. However, for some refactorings, such as <code>Introduce Parameter Object</code>, a large number of tests can actually make migration harder because public function interfaces change in a meaningful way. That can break many tests at once and reduce trust in the test suite.</p>
+
+<p>As a result, many developers may feel discouraged from using this pattern. However, experts such as Martin Fowler and Robert C. Martin agree that it is a key refactoring that can significantly improve maintainability. In Clean Code, Robert C. Martin defines several attributes of a clean function. One of them concerns the number of parameters:</p>
+
+<blockquote><strong>Function Arguments:</strong> The ideal number of arguments for a function is Zero. Next comes One, followed closely by Two. Three arguments should be avoided where possible. More than three is intolerable. Most of the cases, they can be extracted into a class. --- <strong>Robert C. Martin</strong> - Clean Code: A Handbook of Agile Software Craftsmanship, 2008.</blockquote>
+
+<p>In Refactoring, Martin Fowler describes the code smell associated with too many parameters:</p>
+
+<blockquote><strong>Data Clumps:</strong> This is one of my favorite CodeSmells from the refactoring book. You spot it when you constantly see the same few data items passed around together. start and end are a good example of a data clump wanting to be a range. Often data clumps are primitive values that nobody thinks to turn into an object. --- <strong>Martin Fowler</strong> - Refactoring: Improving the Design of Existing Code, 2016.</blockquote>
+
+<p>In this article, I want to show skeptical readers how to introduce this pattern safely, even in code that already has a dense network of unit tests. I will use a practical Monopoly example to illustrate the process. Introducing this pattern is a bit like a technique used in civil engineering called a diversion channel. It creates a safe construction zone while the main structure is being rebuilt. During code migration, we temporarily keep both the old and the new public interfaces in place. That works like a diversion channel that redirects traffic from one route to another while the old route is gradually closed.</p>
+
+<figure>
+  <img src="./images/002-diversion-channel.png" alt="To build a dam on a river, engineers create a temporary diversion channel that redirects the water around the construction site.">
+  <figcaption>To build a dam on a river, engineers create a temporary diversion channel that redirects the water around the construction site.</figcaption>
+</figure>
+
+<h2>Pattern: Introduce Parameter Object</h2>
+
+<p>As mentioned earlier, this pattern is an important tool in the refactoring toolbox. It improves readability and cohesion by grouping related parameters into a single object. It is especially useful when you have a function or method that accepts many parameters.</p>
+
+<p>The pattern was introduced by Martin Fowler. He encourages its use especially when you see a function or method that takes several parameters, usually more than two, that:</p>
+
+<ul>
+    <li>often appear together</li>
+    <li>belong to one logical context</li>
+    <li>make the function signature hard to understand</li>
+    <li>force repeated multi-line data setup in tests, especially in the arrange section</li>
+</ul>
+<p>The Data Clumps smell causes a general decline in code quality. It scatters knowledge about operations across multiple modules, which makes the code harder to evolve and bugs harder to fix. The <code>Introduce Parameter Object</code> pattern addresses that smell by creating a clear boundary for related data and operations. When you find a function with these weaknesses and it also plays an important role in the project, you have probably found a strong candidate for this refactoring.</p>
+
+<figure>
+  <img src="./images/002-database-object.png" alt="A gray cat struggles to hold a stack of loose cards and looks overwhelmed. An orange cat has organized its cards and points to a tidy house labeled &quot;Database Connection Class,&quot; where all the cards are grouped together.">
+  <figcaption>A gray cat struggles to hold a stack of loose cards and looks overwhelmed. An orange cat has organized its cards and points to a tidy house labeled &quot;Database Connection Class,&quot; where all the cards are grouped together.</figcaption>
+</figure>
+
+<p>There are many other design patterns and refactorings that can improve code, but in this article I will focus only on <code>Introduce Parameter Object</code> and the related <code>Data Clumps</code> smell.</p>
+
+<h2>Monopoly - illustrating the problem</h2>
+
+<p>I will illustrate the problem with a practical example from a Delphi project that powers a digital version of the Monopoly board game.</p>
+
+<p>Before the refactoring started, the project had several functions and procedures that accepted between two and four related arguments, such as <code>Players</code> and <code>Board</code>. At the same time, code operating on game state was spread across different units. That made the state and the core logic harder to understand and modify.</p>
+
+<ul>
+    <li>Game state was split across several separate values:
+        <ul>
+            <li><code>Players</code> - a list of player objects, each with its own properties such as <code>Position</code>, <code>IsBankrupt</code>, <code>Id</code>, and so on</li>
+            <li><code>Board</code> - an object representing the board, containing tiles with properties such as <code>TileType</code>, <code>Name</code>, <code>Price</code>, and so on</li>
+            <li><code>CurrentPlayerId</code> - the identifier of the current player</li>
+            <li><code>CurrentDiceRoll</code> - the most recent dice roll</li>
+        </ul>
+    </li>
+    <li>Functions operating on game state were spread across multiple units:
+        <ul>
+            <li><code>RollDice()</code> - a function responsible for simulating a dice roll, used in many places but not tied to any specific game object</li>
+            <li><code>CurrentPlayer(const APlayers: TObjectList&lt;TPlayer&gt;; APlayerId: Integer)</code> - a function that returned the current player based on <code>CurrentPlayerId</code>, but was defined in a different unit from the player-related code</li>
+            <li><code>GetActivePlayers(const APlayers: TObjectList&lt;TPlayer&gt;)</code> - a function that returned the list of active players</li>
+            <li><code>CountActivePlayers(const APlayers: TObjectList&lt;TPlayer&gt;)</code> - a function that counted active players</li>
+            <li><code>NextActivePlayer(const APlayers: TObjectList&lt;TPlayer&gt;; APlayerId: Integer)</code> - a function that returned the next active player</li>
+        </ul>
+    </li>
+    <li>Key game logic lived in functions that accepted different combinations of those values:
+        <ul>
+            <li><code>MovePlayer()</code> - movement logic on the board, and the main place where the Data Clumps smell appeared</li>
+            <li><code>ProcessLocationRules()</code> - rules for handling the newly reached location</li>
+            <li><code>ProcessPayRentRules()</code> - rules for paying rent after landing on another player&#39;s property</li>
+            <li><code>ProcessBankruptcyRules()</code> - bankruptcy rules that checked whether the player went bankrupt after each financial operation</li>
+        </ul>
+    </li>
+</ul>
+<p>Initially, the main game loop looked like this. It is simplified for illustration and does not represent the exact implementation:</p>
+
+<div class="code" data-language="object-pascal">
+<pre><code><span class="keyword">procedure</span> <span class="routine">RunGame</span><span class="operator">;</span>
+<span class="keyword">var</span>
+  <span class="identifier">Board</span><span class="operator">:</span> <span class="class-name">TBoard</span><span class="operator">;</span>
+  <span class="identifier">Players</span><span class="operator">:</span> <span class="class-name">TObjectList</span><span class="operator">&lt;</span><span class="class-name">TPlayer</span><span class="operator">&gt;</span><span class="operator">;</span>
+  <span class="identifier">Player</span><span class="operator">:</span> <span class="class-name">TPlayer</span><span class="operator">;</span>
+  <span class="identifier">Roll</span><span class="operator">:</span> <span class="class-name">TDiceRoll</span><span class="operator">;</span>
+  <span class="identifier">CurrentPlayerId</span><span class="operator">:</span> <span class="type">Integer</span><span class="operator">;</span>
+  <span class="identifier">DoublesCount</span><span class="operator">:</span> <span class="type">Integer</span><span class="operator">;</span>
+  <span class="identifier">HasDouble</span><span class="operator">:</span> <span class="type">Boolean</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  <span class="identifier">Board</span> <span class="operator">:=</span> CreateBoard<span class="operator">;</span>
+  <span class="identifier">Players</span> <span class="operator">:=</span> <span class="routine">CreatePlayers</span><span class="operator">(</span><span class="operator">[</span>
+    <span class="string">&#39;Luke Skywalker&#39;</span><span class="operator">,</span>
+    <span class="string">&#39;Darth Vader&#39;</span><span class="operator">,</span>
+    <span class="string">&#39;Han Solo&#39;</span><span class="operator">,</span>
+    <span class="string">&#39;Leia Organa&#39;</span>
+  <span class="operator">]</span><span class="operator">)</span><span class="operator">;</span>
+  <span class="keyword">try</span>
+    <span class="routine">ShowIntro</span><span class="operator">(</span>Players<span class="operator">)</span><span class="operator">;</span>
+
+    <span class="identifier">Player</span> <span class="operator">:=</span> <span class="routine">NextActivePlayer</span><span class="operator">(</span>Players<span class="operator">,</span> CurrentPlayerId<span class="operator">)</span><span class="operator">;</span>
+    <span class="keyword">while</span> <span class="routine">Assigned</span><span class="operator">(</span>Player<span class="operator">)</span> <span class="keyword">do</span>
+    <span class="keyword">begin</span>
+      <span class="identifier">DoublesCount</span> <span class="operator">:=</span> <span class="number">0</span><span class="operator">;</span>
+      <span class="identifier">HasDouble</span> <span class="operator">:=</span> <span class="boolean">True</span><span class="operator">;</span>
+
+      <span class="keyword">while</span> HasDouble <span class="keyword">and</span> <span class="operator">(</span>DoublesCount <span class="operator">&lt;</span> <span class="number">3</span><span class="operator">)</span> <span class="keyword">and</span> <span class="keyword">not</span> Player<span class="operator">.</span><span class="property">IsBankrupt</span> <span class="keyword">do</span>
+      <span class="keyword">begin</span>
+        <span class="identifier">Roll</span> <span class="operator">:=</span> RollDice<span class="operator">;</span>
+        <span class="routine">MovePlayer</span><span class="operator">(</span>Player<span class="operator">,</span> Board<span class="operator">,</span> Players<span class="operator">,</span> Roll<span class="operator">.</span><span class="property">Total</span><span class="operator">)</span><span class="operator">;</span>
+
+        <span class="identifier">HasDouble</span> <span class="operator">:=</span> Roll<span class="operator">.</span><span class="property">IsDouble</span><span class="operator">;</span>
+        <span class="keyword">if</span> HasDouble <span class="keyword">then</span>
+          <span class="routine">Inc</span><span class="operator">(</span>DoublesCount<span class="operator">)</span><span class="operator">;</span>
+      <span class="keyword">end</span><span class="operator">;</span>
+
+      <span class="identifier">Player</span> <span class="operator">:=</span> <span class="routine">NextActivePlayer</span><span class="operator">(</span>Players<span class="operator">,</span> CurrentPlayerId<span class="operator">)</span><span class="operator">;</span>
+    <span class="keyword">end</span><span class="operator">;</span>
+
+    <span class="routine">ShowSummary</span><span class="operator">(</span>Players<span class="operator">)</span><span class="operator">;</span>
+  <span class="keyword">finally</span>
+    Players<span class="operator">.</span><span class="property">Free</span><span class="operator">;</span>
+    Board<span class="operator">.</span><span class="property">Free</span><span class="operator">;</span>
+  <span class="keyword">end</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span></code></pre>
+</div>
+
+<p>This version works, but the data and functions it relies on are scattered. If you want to change how active players are tracked, how turns are ordered, or how utilities and electric company rules are handled, you need to touch several places at once.</p>
+
+<p>Problems that are already visible from the outside become much worse inside <code>MovePlayer()</code>. It takes four parameters: <code>APlayer</code>, <code>ABoard</code>, <code>APlayers</code>, and <code>ARollTotal</code>, and it contains a lot of crucial game rules, such as going to jail, checking whether the player is bankrupt, and deciding whether the player landed on someone else&#39;s property and must pay rent. This is a large function with too many responsibilities, and even in its current state it is hard to understand and modify. As the project grows, this area can only get worse. An early design shortcut, keeping game state in many separate values, makes it much harder to introduce changes such as a flexible rules system that follows the Open-Closed Principle from SOLID.</p>
+
+<h2>Architectural comment</h2>
+
+<p>I already mentioned the Open-Closed Principle, but there is another SOLID principle that matters a lot for this refactoring: the Single Responsibility Principle.</p>
+
+<p>SRP says that a class should not become too large and, more precisely, that it should have only one reason to change. In the Monopoly context, a <code>TGame</code> object should be responsible for managing game state. It is very easy to violate SRP with an object like this because it may seem natural to put every game-related concern into it, even REST communication or file persistence. Drawing the right boundary takes experience and practice. We should not even put property-purchase rules or rent-payment rules into it. Those responsibilities should live in separate modules or classes.</p>
+
+<p>Look for a boundary that groups closely related values, not a bucket for everything. Keep one key rule in mind: do not push too much into one object. If the boundary grows too wide, narrow the responsibility again, usually by splitting the object into smaller parts. Defining boundaries well is a central part of software design, and many principles address it, including SRP, Separation of Concerns, and Event Storming in Domain-Driven Design. An oversized bucket object with too many responsibilities is commonly known as a God Object, which is an anti-pattern.</p>
+
+<h2>Refactoring step by step</h2>
+
+<ol>
+    <li><strong>Create the <code>TGame</code> object.</strong>
+        <ul>
+            <li>Create a <code>TGame</code> class and a simple factory function <code>CreateGame(const APlayerNames: array of string): TGame</code> that returns an instance with the initial game state, including the player list, the board, the current player, and helper methods for navigating the state.
+                <ul>
+                    <li>Make sure <code>CreateGame()</code> is well tested so you can trust the shape and behavior of the returned object. This is a critical step because <code>TGame</code> becomes the new boundary for many functions, so it must be stable and well defined.
+                        <div class="code" data-language="object-pascal">
+                        <pre><code><span class="operator">[</span>Test<span class="operator">]</span>
+<span class="keyword">procedure</span> <span class="class-name">TGameFactoryTests</span><span class="operator">.</span><span class="property">CreateGame_ReturnsExpectedShape</span><span class="operator">;</span>
+<span class="keyword">var</span>
+  <span class="identifier">Game</span><span class="operator">:</span> <span class="class-name">TGame</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  <span class="identifier">Game</span> <span class="operator">:=</span> <span class="routine">CreateGame</span><span class="operator">(</span><span class="operator">[</span><span class="string">&#39;Luke&#39;</span><span class="operator">,</span> <span class="string">&#39;Leia&#39;</span><span class="operator">]</span><span class="operator">)</span><span class="operator">;</span>
+  <span class="keyword">try</span>
+    Assert<span class="operator">.</span><span class="routine">AreEqual</span><span class="operator">(</span><span class="number">2</span><span class="operator">,</span> Game<span class="operator">.</span><span class="property">Players</span><span class="operator">.</span><span class="property">Count</span><span class="operator">)</span><span class="operator">;</span>
+    Assert<span class="operator">.</span><span class="routine">AreEqual</span><span class="operator">(</span><span class="operator">-</span><span class="number">1</span><span class="operator">,</span> Game<span class="operator">.</span><span class="property">CurrentPlayerId</span><span class="operator">)</span><span class="operator">;</span>
+    Assert<span class="operator">.</span><span class="routine">IsNotNull</span><span class="operator">(</span>Game<span class="operator">.</span><span class="property">Board</span><span class="operator">)</span><span class="operator">;</span>
+  <span class="keyword">finally</span>
+    Game<span class="operator">.</span><span class="property">Free</span><span class="operator">;</span>
+  <span class="keyword">end</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span></code></pre>
+                        </div>
+                    </li>
+                    <li>Move to the next step when you have strong tests for <code>CreateGame()</code>.</li>
+                </ul>
+            </li>
+            <li><strong>Introduce the diversion channel.</strong>
+                <ul>
+                    <li>Create <code>MovePlayerNew()</code>, but let it delegate internally to the old function so that existing behavior stays intact. This lets you migrate calls to <code>MovePlayer</code> gradually without immediately breaking the test suite.
+                        <div class="code" data-language="object-pascal">
+                        <pre><code><span class="keyword">procedure</span> <span class="routine">MovePlayerNew</span><span class="operator">(</span><span class="identifier">AGame</span><span class="operator">:</span> <span class="class-name">TGame</span><span class="operator">)</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  <span class="routine">MovePlayer</span><span class="operator">(</span>
+    AGame<span class="operator">.</span><span class="property">CurrentPlayer</span><span class="operator">,</span>
+    AGame<span class="operator">.</span><span class="property">Board</span><span class="operator">,</span>
+    AGame<span class="operator">.</span><span class="property">Players</span><span class="operator">,</span>
+    AGame<span class="operator">.</span><span class="property">CurrentDiceRoll</span><span class="operator">.</span><span class="property">Total</span><span class="operator">)</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span></code></pre>
+                        </div>
+                    </li>
+                    <li>Move to the next step when you have verified that <code>MovePlayerNew()</code> works correctly in at least one test.</li>
+                </ul>
+            </li>
+            <li><strong>Update the tests.</strong>
+                <ul>
+                    <li>Update the <code>MovePlayer</code> tests to use <code>MovePlayerNew(Game)</code>. Estimate the size of the migration. If it will take longer, keep both test variants in place and migrate them gradually, one by one.</li>
+                    <li>Run the tests often to make sure they still pass. Enabling watch mode helps here.
+                        <div class="code" data-language="object-pascal">
+                        <pre><code><span class="operator">[</span>Test<span class="operator">]</span>
+<span class="keyword">procedure</span> <span class="class-name">TMovePlayerTests</span><span class="operator">.</span><span class="property">ObiWanPassesStartAndBuysLocation</span><span class="operator">;</span>
+<span class="keyword">var</span>
+  <span class="identifier">Game</span><span class="operator">:</span> <span class="class-name">TGame</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  <span class="identifier">Game</span> <span class="operator">:=</span> <span class="routine">CreateTestGame</span><span class="operator">(</span><span class="operator">[</span>
+    <span class="class-name">TTestPlayerData</span><span class="operator">.</span><span class="routine">Create</span><span class="operator">(</span><span class="string">&#39;Obi-Wan&#39;</span><span class="operator">,</span> <span class="number">31</span><span class="operator">,</span> <span class="number">1500</span><span class="operator">)</span>
+  <span class="operator">]</span><span class="operator">)</span><span class="operator">;</span>
+  <span class="keyword">try</span>
+    Game<span class="operator">.</span><span class="property">CurrentDiceRoll</span> <span class="operator">:=</span> <span class="class-name">TDiceRoll</span><span class="operator">.</span><span class="routine">Create</span><span class="operator">(</span><span class="number">10</span><span class="operator">,</span> <span class="boolean">False</span><span class="operator">)</span><span class="operator">;</span>
+
+    <span class="routine">MovePlayerNew</span><span class="operator">(</span>Game<span class="operator">)</span><span class="operator">;</span>
+
+    Assert<span class="operator">.</span><span class="routine">AreEqual</span><span class="operator">(</span><span class="number">1</span><span class="operator">,</span> Game<span class="operator">.</span><span class="property">Players</span><span class="operator">[</span><span class="number">0</span><span class="operator">]</span><span class="operator">.</span><span class="property">Position</span><span class="operator">)</span><span class="operator">;</span>
+    Assert<span class="operator">.</span><span class="routine">AreEqual</span><span class="operator">(</span><span class="number">1500</span> <span class="operator">+</span> <span class="number">200</span> <span class="operator">-</span> <span class="number">60</span><span class="operator">,</span> Game<span class="operator">.</span><span class="property">Players</span><span class="operator">[</span><span class="number">0</span><span class="operator">]</span><span class="operator">.</span><span class="property">Money</span><span class="operator">)</span><span class="operator">;</span>
+  <span class="keyword">finally</span>
+    Game<span class="operator">.</span><span class="property">Free</span><span class="operator">;</span>
+  <span class="keyword">end</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span></code></pre>
+                        </div>
+                    </li>
+                    <li>Move to the next step when all tests pass.</li>
+                </ul>
+            </li>
+            <li><strong>Migrate production calls.</strong>
+                <ul>
+                    <li>Update all calls from <code>MovePlayer(APlayer, ABoard, APlayers, ASteps)</code> to <code>MovePlayerNew(AGame)</code>. Again, if the migration is large, keep both variants and move gradually, running tests after each change.</li>
+                    <li>To make progress easier to track, you can rename the old function to <code>MovePlayerOld()</code> so it is always clear which version is still used in production code.</li>
+                    <li>Move the full implementation of player movement into <code>MovePlayerNew()</code>. That lets you gradually remove the dependency on the old function.</li>
+                    <li>When finished, make sure all tests still pass.</li>
+                    <li>Remove the old <code>MovePlayerOld()</code> function and any obsolete tests.</li>
+                    <li>Rename <code>MovePlayerNew()</code> back to <code>MovePlayer()</code>.</li>
+                </ul>
+            </li>
+        </ul>
+    </li>
+</ol>
+<p>Changing everything at once would be risky and could easily damage the test suite, miss a critical scenario, or introduce production bugs. A safer path is this:</p>
+
+<ol>
+    <li>Keep the old behavior intact until the very end of the migration.</li>
+    <li>Add a temporary adapter that delegates to the old function.</li>
+    <li>Migrate tests gradually.</li>
+    <li>Collapse the production code into the final <code>MovePlayer(AGame)</code> form.</li>
+</ol>
+<p>The <code>MovePlayerNew</code> adapter is not the goal. It is only a migration aid. You introduce it to preserve behavior while callers move from the old function signature to the new one. That is why the diversion channel is such a useful metaphor. It gives you a dry construction zone where you can make changes safely and then gradually move traffic from the old route, the old function signature, to the new route, the new function signature. Once all traffic is on the new route, the old one can be removed and the new one becomes the only path forward.</p>
+
+<h2>Example of <code>TGame</code> and the adapter</h2>
+
+<p>This is what the new project boundary around the <code>TGame</code> object can look like:</p>
+
+<div class="code" data-language="object-pascal">
+<pre><code><span class="keyword">type</span>
+  <span class="class-name">TGame</span> <span class="operator">=</span> <span class="keyword">class</span>
+  <span class="keyword">private</span>
+    <span class="identifier">FBoard</span><span class="operator">:</span> <span class="class-name">TBoard</span><span class="operator">;</span>
+    <span class="identifier">FPlayers</span><span class="operator">:</span> <span class="class-name">TObjectList</span><span class="operator">&lt;</span><span class="class-name">TPlayer</span><span class="operator">&gt;</span><span class="operator">;</span>
+    <span class="identifier">FCurrentPlayerId</span><span class="operator">:</span> <span class="type">Integer</span><span class="operator">;</span>
+    <span class="identifier">FCurrentDiceRoll</span><span class="operator">:</span> <span class="class-name">TDiceRoll</span><span class="operator">;</span>
+    <span class="keyword">function</span> <span class="routine">GetCurrentPlayer</span><span class="operator">:</span> <span class="class-name">TPlayer</span><span class="operator">;</span>
+    <span class="keyword">function</span> <span class="routine">IndexOfActivePlayer</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">AActivePlayers</span><span class="operator">:</span> <span class="class-name">TArray</span><span class="operator">&lt;</span><span class="class-name">TPlayer</span><span class="operator">&gt;</span><span class="operator">;</span>
+      <span class="identifier">APlayerId</span><span class="operator">:</span> <span class="type">Integer</span><span class="operator">)</span><span class="operator">:</span> <span class="type">Integer</span><span class="operator">;</span>
+  <span class="keyword">public</span>
+    <span class="keyword">constructor</span> <span class="routine">Create</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">APlayerNames</span><span class="operator">:</span> <span class="keyword">array</span> <span class="keyword">of</span> <span class="keyword">string</span><span class="operator">)</span><span class="operator">;</span>
+    <span class="keyword">destructor</span> <span class="routine">Destroy</span><span class="operator">;</span> <span class="keyword">override</span><span class="operator">;</span>
+    <span class="keyword">function</span> <span class="routine">RollDice</span><span class="operator">:</span> <span class="class-name">TDiceRoll</span><span class="operator">;</span>
+    <span class="keyword">function</span> <span class="routine">GetActivePlayers</span><span class="operator">:</span> <span class="class-name">TArray</span><span class="operator">&lt;</span><span class="class-name">TPlayer</span><span class="operator">&gt;</span><span class="operator">;</span>
+    <span class="keyword">function</span> <span class="routine">CountActivePlayers</span><span class="operator">:</span> <span class="type">Integer</span><span class="operator">;</span>
+    <span class="keyword">function</span> <span class="routine">TrySelectNextActivePlayer</span><span class="operator">:</span> <span class="type">Boolean</span><span class="operator">;</span>
+    <span class="keyword">property</span> <span class="identifier">Board</span><span class="operator">:</span> <span class="class-name">TBoard</span> <span class="keyword">read</span> FBoard<span class="operator">;</span>
+    <span class="keyword">property</span> <span class="identifier">Players</span><span class="operator">:</span> <span class="class-name">TObjectList</span><span class="operator">&lt;</span><span class="class-name">TPlayer</span><span class="operator">&gt;</span> <span class="keyword">read</span> FPlayers<span class="operator">;</span>
+    <span class="keyword">property</span> <span class="identifier">CurrentPlayer</span><span class="operator">:</span> <span class="class-name">TPlayer</span> <span class="keyword">read</span> GetCurrentPlayer<span class="operator">;</span>
+    <span class="keyword">property</span> <span class="identifier">CurrentPlayerId</span><span class="operator">:</span> <span class="type">Integer</span> <span class="keyword">read</span> FCurrentPlayerId <span class="keyword">write</span> FCurrentPlayerId<span class="operator">;</span>
+    <span class="keyword">property</span> <span class="identifier">CurrentDiceRoll</span><span class="operator">:</span> <span class="class-name">TDiceRoll</span> <span class="keyword">read</span> FCurrentDiceRoll <span class="keyword">write</span> FCurrentDiceRoll<span class="operator">;</span>
+  <span class="keyword">end</span><span class="operator">;</span>
+
+<span class="keyword">function</span> <span class="routine">CreateGame</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">APlayerNames</span><span class="operator">:</span> <span class="keyword">array</span> <span class="keyword">of</span> <span class="keyword">string</span><span class="operator">)</span><span class="operator">:</span> <span class="class-name">TGame</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  <span class="identifier">Result</span> <span class="operator">:=</span> <span class="class-name">TGame</span><span class="operator">.</span><span class="routine">Create</span><span class="operator">(</span>APlayerNames<span class="operator">)</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span>
+
+<span class="keyword">constructor</span> <span class="class-name">TGame</span><span class="operator">.</span><span class="routine">Create</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">APlayerNames</span><span class="operator">:</span> <span class="keyword">array</span> <span class="keyword">of</span> <span class="keyword">string</span><span class="operator">)</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  <span class="keyword">inherited</span> Create<span class="operator">;</span>
+  <span class="identifier">FPlayers</span> <span class="operator">:=</span> <span class="routine">CreatePlayers</span><span class="operator">(</span>APlayerNames<span class="operator">)</span><span class="operator">;</span>
+  <span class="identifier">FBoard</span> <span class="operator">:=</span> CreateBoard<span class="operator">;</span>
+  <span class="identifier">FCurrentPlayerId</span> <span class="operator">:=</span> <span class="operator">-</span><span class="number">1</span><span class="operator">;</span>
+  <span class="identifier">FCurrentDiceRoll</span> <span class="operator">:=</span> <span class="keyword">Default</span><span class="operator">(</span><span class="class-name">TDiceRoll</span><span class="operator">)</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span>
+
+<span class="keyword">destructor</span> <span class="class-name">TGame</span><span class="operator">.</span><span class="property">Destroy</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  FBoard<span class="operator">.</span><span class="property">Free</span><span class="operator">;</span>
+  FPlayers<span class="operator">.</span><span class="property">Free</span><span class="operator">;</span>
+  <span class="keyword">inherited</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span>
+
+<span class="keyword">function</span> <span class="class-name">TGame</span><span class="operator">.</span><span class="property">RollDice</span><span class="operator">:</span> <span class="class-name">TDiceRoll</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  <span class="identifier">Result</span> <span class="operator">:=</span> RollDiceCore<span class="operator">;</span>
+  <span class="identifier">FCurrentDiceRoll</span> <span class="operator">:=</span> Result<span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span>
+
+<span class="keyword">function</span> <span class="class-name">TGame</span><span class="operator">.</span><span class="property">GetCurrentPlayer</span><span class="operator">:</span> <span class="class-name">TPlayer</span><span class="operator">;</span>
+<span class="keyword">var</span>
+  <span class="identifier">Player</span><span class="operator">:</span> <span class="class-name">TPlayer</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  <span class="keyword">for</span> Player <span class="keyword">in</span> FPlayers <span class="keyword">do</span>
+    <span class="keyword">if</span> Player<span class="operator">.</span><span class="property">Id</span> <span class="operator">=</span> FCurrentPlayerId <span class="keyword">then</span>
+      <span class="routine">Exit</span><span class="operator">(</span>Player<span class="operator">)</span><span class="operator">;</span>
+
+  <span class="identifier">Result</span> <span class="operator">:=</span> <span class="keyword">nil</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span>
+
+<span class="keyword">function</span> <span class="class-name">TGame</span><span class="operator">.</span><span class="property">GetActivePlayers</span><span class="operator">:</span> <span class="class-name">TArray</span><span class="operator">&lt;</span><span class="class-name">TPlayer</span><span class="operator">&gt;</span><span class="operator">;</span>
+<span class="keyword">var</span>
+  <span class="identifier">Player</span><span class="operator">:</span> <span class="class-name">TPlayer</span><span class="operator">;</span>
+  <span class="identifier">ActivePlayers</span><span class="operator">:</span> <span class="class-name">TList</span><span class="operator">&lt;</span><span class="class-name">TPlayer</span><span class="operator">&gt;</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  <span class="identifier">ActivePlayers</span> <span class="operator">:=</span> <span class="class-name">TList</span><span class="operator">&lt;</span><span class="class-name">TPlayer</span><span class="operator">&gt;</span><span class="operator">.</span><span class="property">Create</span><span class="operator">;</span>
+  <span class="keyword">try</span>
+    <span class="keyword">for</span> Player <span class="keyword">in</span> FPlayers <span class="keyword">do</span>
+      <span class="keyword">if</span> <span class="keyword">not</span> Player<span class="operator">.</span><span class="property">IsBankrupt</span> <span class="keyword">then</span>
+        ActivePlayers<span class="operator">.</span><span class="routine">Add</span><span class="operator">(</span>Player<span class="operator">)</span><span class="operator">;</span>
+
+    <span class="identifier">Result</span> <span class="operator">:=</span> ActivePlayers<span class="operator">.</span><span class="property">ToArray</span><span class="operator">;</span>
+  <span class="keyword">finally</span>
+    ActivePlayers<span class="operator">.</span><span class="property">Free</span><span class="operator">;</span>
+  <span class="keyword">end</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span>
+
+<span class="keyword">function</span> <span class="class-name">TGame</span><span class="operator">.</span><span class="property">CountActivePlayers</span><span class="operator">:</span> <span class="type">Integer</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  <span class="identifier">Result</span> <span class="operator">:=</span> <span class="routine">Length</span><span class="operator">(</span>GetActivePlayers<span class="operator">)</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span>
+
+<span class="keyword">function</span> <span class="class-name">TGame</span><span class="operator">.</span><span class="routine">IndexOfActivePlayer</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">AActivePlayers</span><span class="operator">:</span> <span class="class-name">TArray</span><span class="operator">&lt;</span><span class="class-name">TPlayer</span><span class="operator">&gt;</span><span class="operator">;</span>
+  <span class="identifier">APlayerId</span><span class="operator">:</span> <span class="type">Integer</span><span class="operator">)</span><span class="operator">:</span> <span class="type">Integer</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  <span class="keyword">for</span> <span class="identifier">Result</span> <span class="operator">:=</span> <span class="number">0</span> <span class="keyword">to</span> <span class="routine">High</span><span class="operator">(</span>AActivePlayers<span class="operator">)</span> <span class="keyword">do</span>
+    <span class="keyword">if</span> AActivePlayers<span class="operator">[</span>Result<span class="operator">]</span><span class="operator">.</span><span class="property">Id</span> <span class="operator">=</span> APlayerId <span class="keyword">then</span>
+      Exit<span class="operator">;</span>
+
+  <span class="identifier">Result</span> <span class="operator">:=</span> <span class="operator">-</span><span class="number">1</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span>
+
+<span class="keyword">function</span> <span class="class-name">TGame</span><span class="operator">.</span><span class="property">TrySelectNextActivePlayer</span><span class="operator">:</span> <span class="type">Boolean</span><span class="operator">;</span>
+<span class="keyword">var</span>
+  <span class="identifier">ActivePlayers</span><span class="operator">:</span> <span class="class-name">TArray</span><span class="operator">&lt;</span><span class="class-name">TPlayer</span><span class="operator">&gt;</span><span class="operator">;</span>
+  <span class="identifier">CurrentIndex</span><span class="operator">:</span> <span class="type">Integer</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  <span class="identifier">ActivePlayers</span> <span class="operator">:=</span> GetActivePlayers<span class="operator">;</span>
+  <span class="keyword">if</span> <span class="routine">Length</span><span class="operator">(</span>ActivePlayers<span class="operator">)</span> <span class="operator">&lt;</span> <span class="number">2</span> <span class="keyword">then</span>
+  <span class="keyword">begin</span>
+    <span class="identifier">FCurrentPlayerId</span> <span class="operator">:=</span> <span class="operator">-</span><span class="number">1</span><span class="operator">;</span>
+    <span class="routine">Exit</span><span class="operator">(</span><span class="boolean">False</span><span class="operator">)</span><span class="operator">;</span>
+  <span class="keyword">end</span><span class="operator">;</span>
+
+  <span class="keyword">if</span> <span class="identifier">CurrentPlayer</span> <span class="operator">=</span> <span class="keyword">nil</span> <span class="keyword">then</span>
+    <span class="identifier">FCurrentPlayerId</span> <span class="operator">:=</span> ActivePlayers<span class="operator">[</span><span class="number">0</span><span class="operator">]</span><span class="operator">.</span><span class="property">Id</span>
+  <span class="keyword">else</span>
+  <span class="keyword">begin</span>
+    <span class="identifier">CurrentIndex</span> <span class="operator">:=</span> <span class="routine">IndexOfActivePlayer</span><span class="operator">(</span>ActivePlayers<span class="operator">,</span> CurrentPlayer<span class="operator">.</span><span class="property">Id</span><span class="operator">)</span><span class="operator">;</span>
+    <span class="identifier">FCurrentPlayerId</span> <span class="operator">:=</span> ActivePlayers<span class="operator">[</span><span class="operator">(</span>CurrentIndex <span class="operator">+</span> <span class="number">1</span><span class="operator">)</span> <span class="keyword">mod</span> <span class="routine">Length</span><span class="operator">(</span>ActivePlayers<span class="operator">)</span><span class="operator">]</span><span class="operator">.</span><span class="property">Id</span><span class="operator">;</span>
+  <span class="keyword">end</span><span class="operator">;</span>
+
+  <span class="identifier">Result</span> <span class="operator">:=</span> <span class="boolean">True</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span></code></pre>
+</div>
+
+<h2>Final advice</h2>
+
+<p>The <code>Introduce Parameter Object</code> pattern may be expensive to introduce, but it pays back with every change that comes later.</p>
+
+<p>Practicing refactoring is part of what separates a good engineering team from an average one. A strong team lead should encourage developers to refactor, which in turn means investing time in a solid unit test suite. Missing or weak tests are a common reason why teams avoid refactoring, which then leads to declining code quality and fast-growing technical debt. Large technical debt reduces team productivity and morale, and in extreme cases it leads to rewriting the whole project in a supposedly better technology. That is expensive, risky, and rarely delivers the expected results, because the same team often repeats the same mistakes, while a brand new team may lack the domain knowledge and experience needed to do better.</p>
+
+<p>On the other hand, designing in advance for every future need is very difficult in practice, and often impossible. When we design a system, we do not have complete knowledge of future requirements, and even if we think we do, those requirements may still change. That is why it is so important to have tools and techniques for introducing change safely. Their purpose is to improve code quality and make the system easier to maintain over time.</p>
+
+<p>Refactoring is not a rigid set of rules. It is a set of practical guidelines that require adaptation and judgment. They help developers make conscious decisions while transforming weak code. In the case of <code>Introduce Parameter Object</code>, the key principle is to avoid creating a boundary that is too broad. Do not try to move the entire game state into one <code>TGame</code> object all at once, because that can lead directly to a God Object that is hard to understand and maintain.</p>
+
+<p>When code changes look risky, do not start by redesigning the entire system. Use this decision tree instead:</p>
+
+<ol>
+    <li><strong>Do you have strong unit tests?</strong> If not, build them first.</li>
+    <li><strong>Can you introduce a temporary adapter that delegates to the old function?</strong> If not, the scope is still too large, so split it further.</li>
+    <li><strong>Can you migrate tests one by one?</strong> If not, the scope is still too large, so split it further.</li>
+</ol>
+<p>If you can answer yes to all three, you are probably ready to refactor safely.</p>
+
+<h2>References</h2>
+
+<ol>
+    <li>Martin Fowler - Refactoring: Improving the Design of Existing Code. <a href="https://martinfowler.com/books/refactoring.html">https://martinfowler.com/books/refactoring.html</a></li>
+    <li>Robert C. Martin - Clean Code: A Handbook of Agile Software Craftsmanship. <a href="https://www.goodreads.com/book/show/3735293-clean-code">https://www.goodreads.com/book/show/3735293-clean-code</a></li>
+    <li>Martin Fowler - Data Clump Code Smell. <a href="https://martinfowler.com/bliki/DataClump.html">https://martinfowler.com/bliki/DataClump.html</a></li>
+    <li>SOLID principles - Wikipedia. <a href="https://en.wikipedia.org/wiki/SOLID">https://en.wikipedia.org/wiki/SOLID</a></li>
+    <li>Refactoring Guru - Introduce Parameter Object. <a href="https://refactoring.guru/introduce-parameter-object/">https://refactoring.guru/introduce-parameter-object/</a></li>
+    <li>Refactoring Guru - Data Clumps. <a href="https://refactoring.guru/smells/data-clumps/">https://refactoring.guru/smells/data-clumps/</a></li>
+    <li>Refactoring Guru - Large Class. <a href="https://refactoring.guru/smells/large-class">https://refactoring.guru/smells/large-class</a></li>
+</ol>
+
+        </article>
+      </div>
+
+      <footer class="footer">
+        <div class="footer-inner">
+          <p></p>
+        </div>
+      </footer>
+    </div>
+  </main>
+
+  <script src="add-copy-buttons.js"></script>
+
+</body>
+
+</html>

@@ -5,7 +5,7 @@ date: 2026-03-13
 author: "Bogdan Polak"
 title: "More Readable Code with Class Helpers"
 description: "How Class Helpers can improve code readability in Delphi projects?"
-coverImage: "images/post001-image-001.png"
+coverImage: "images/001-cover-image.png"
 coverImageCaption: "A squirrel works at a computer while a blue bird inspects the code readability."
 intro: "Delphi projects tend to accumulate a lot of procedural glue over time, usually in the form of utility functions. That code works, but reading it becomes increasingly expensive. The same patterns show up in different parts of the codebase. Class helpers available in all modern Delphi versions are one of the simplest ways to make that code easier to read."
 ---

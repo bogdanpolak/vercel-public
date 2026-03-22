@@ -27,7 +27,7 @@
             <p class="hero-intro">Jak Class Helpers mogą poprawić czytelność kodu w projektach Delphi?</p>
           </div>
           <figure class="cover">
-            <img src="images/post001-image-001.png" alt="Wiewiórka pracuje przy komputerze, podczas gdy niebieski ptak sprawdza czytelność kodu." loading="lazy">
+            <img src="images/001-cover-image.png" alt="Wiewiórka pracuje przy komputerze, podczas gdy niebieski ptak sprawdza czytelność kodu." loading="lazy">
             <figcaption>Wiewiórka pracuje przy komputerze, podczas gdy niebieski ptak sprawdza czytelność kodu.</figcaption>
           </figure>
         </div>
@@ -54,7 +54,7 @@
 
 <p>Styl proceduralny często prowadzi do kodu takiego jak ten:</p>
 
-<section class="code">
+<div class="code" data-language="object-pascal">
 <pre><code><span class="keyword">function</span> <span class="routine">FileToFormattedBase64</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">AFileName</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">)</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">;</span>
 <span class="keyword">var</span>
   <span class="identifier">ms</span><span class="operator">:</span> <span class="class-name">TMemoryStream</span><span class="operator">;</span>
@@ -69,11 +69,11 @@
     ms<span class="operator">.</span><span class="property">Free</span><span class="operator">;</span>
   <span class="keyword">end</span><span class="operator">;</span>
 <span class="keyword">end</span><span class="operator">;</span></code></pre>
-</section>
+</div>
 
 <p>Nie ma tu niczego szczególnie trudnego do zrozumienia, ale logika jest pofragmentowana. Teraz porównaj to ze stylem opartym na helperach:</p>
 
-<section class="code">
+<div class="code" data-language="object-pascal">
 <pre><code><span class="keyword">function</span> <span class="routine">FileToFormattedBase64</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">AFileName</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">)</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">;</span>
 <span class="keyword">var</span>
   <span class="identifier">bytes</span><span class="operator">:</span> <span class="class-name">TBytes</span><span class="operator">;</span>
@@ -81,7 +81,7 @@
   bytes<span class="operator">.</span><span class="routine">LoadFromFile</span><span class="operator">(</span><span class="string">&#39;photo.png&#39;</span><span class="operator">)</span><span class="operator">;</span>
   <span class="identifier">Result</span> <span class="operator">:=</span> bytes<span class="operator">.</span><span class="property">GenerateBase64Code</span><span class="operator">;</span>
 <span class="keyword">end</span><span class="operator">;</span></code></pre>
-</section>
+</div>
 
 <p>Drugi przykład jest bliższy domenie problemu. Operacje są przypięte do typu, który posiada dane. To właśnie główna wartość helperów: poprawiają kształt kodu tam, gdzie jest używany. Kod ulega standardyzacji, bo zamiast używać <code>TMemoryStream</code> programista pracuje na tablicy bajtów, która nie wymaga ręcznego zarządzania pamięcią.</p>
 
@@ -109,7 +109,7 @@
 
 <p>Na przykład taka sygnatura helpera dobrze pasuje do bajtów:</p>
 
-<section class="code">
+<div class="code" data-language="object-pascal">
 <pre><code><span class="keyword">type</span>
   <span class="class-name">TBytesHelper</span> <span class="operator">=</span> <span class="keyword">record</span> <span class="keyword">helper</span> <span class="keyword">for</span> <span class="class-name">TBytes</span>
   <span class="keyword">public</span>
@@ -117,18 +117,18 @@
     <span class="keyword">procedure</span> <span class="routine">SaveToFile</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">aFileName</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">)</span><span class="operator">;</span>
     <span class="keyword">function</span> <span class="routine">GenerateBase64Code</span><span class="operator">(</span><span class="identifier">aLineLength</span><span class="operator">:</span> <span class="type">Integer</span> <span class="operator">=</span> <span class="number">68</span><span class="operator">)</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">;</span>
   <span class="keyword">end</span><span class="operator">;</span></code></pre>
-</section>
+</div>
 
 <p>A taka dobrze pasuje do datasetów:</p>
 
-<section class="code">
+<div class="code" data-language="object-pascal">
 <pre><code><span class="keyword">type</span>
   <span class="class-name">TDataSetHelper</span> <span class="operator">=</span> <span class="keyword">class</span> <span class="keyword">helper</span> <span class="keyword">for</span> <span class="class-name">TDataSet</span>
   <span class="keyword">public</span>
     <span class="keyword">procedure</span> <span class="routine">ForEachRow</span><span class="operator">(</span><span class="identifier">proc</span><span class="operator">:</span> <span class="class-name">TProc</span><span class="operator">)</span><span class="operator">;</span>
     <span class="keyword">function</span> <span class="routine">LoadData</span><span class="operator">&lt;</span><span class="identifier">T</span><span class="operator">:</span> <span class="keyword">class</span><span class="operator">,</span> <span class="keyword">constructor</span><span class="operator">&gt;</span><span class="operator">:</span> <span class="class-name">TObjectList</span><span class="operator">&lt;</span>T<span class="operator">&gt;</span><span class="operator">;</span>
   <span class="keyword">end</span><span class="operator">;</span></code></pre>
-</section>
+</div>
 
 <p>Żaden z tych helperów nie zmienia tego, czym jest typ bazowy. One jedynie sprawiają, że typowe operacje są łatwiejsze do odkrycia i łatwiejsze do odczytania.</p>
 
@@ -138,7 +138,7 @@
 
 <p>Bez helperów zespół zwykle kończy z unitem narzędziowym pełnym globalnych procedur. Z pomocą skupionego helpera kod staje się znacznie bardziej bezpośredni:</p>
 
-<section class="code">
+<div class="code" data-language="object-pascal">
 <pre><code><span class="keyword">uses</span>
   <span class="keyword">Helper</span><span class="operator">.</span><span class="class-name">TBytes</span><span class="operator">;</span>
 
@@ -149,7 +149,7 @@
   bytes<span class="operator">.</span><span class="routine">LoadFromFile</span><span class="operator">(</span><span class="string">&#39;report.bin&#39;</span><span class="operator">)</span><span class="operator">;</span>
   <span class="identifier">crc</span> <span class="operator">:=</span> bytes<span class="operator">.</span><span class="routine">GetSectorCRC32</span><span class="operator">(</span><span class="number">0</span><span class="operator">,</span> bytes<span class="operator">.</span><span class="property">Size</span><span class="operator">)</span><span class="operator">;</span>
 <span class="keyword">end</span><span class="operator">;</span></code></pre>
-</section>
+</div>
 
 <p>Są tu dwa zyski dla czytelności.</p>
 
@@ -165,7 +165,7 @@
 
 <p>Dla iteracji po wierszach łatwiej przeskanować coś takiego:</p>
 
-<section class="code">
+<div class="code" data-language="object-pascal">
 <pre><code><span class="keyword">uses</span>
   Data<span class="operator">.</span><span class="property">DB</span><span class="operator">,</span>
   <span class="keyword">Helper</span><span class="operator">.</span><span class="class-name">TDataSet</span><span class="operator">;</span>
@@ -178,13 +178,13 @@
       aNames<span class="operator">.</span><span class="routine">Add</span><span class="operator">(</span>aDataSet<span class="operator">.</span><span class="routine">FieldByName</span><span class="operator">(</span><span class="string">&#39;city&#39;</span><span class="operator">)</span><span class="operator">.</span><span class="property">AsString</span><span class="operator">)</span><span class="operator">;</span>
     <span class="keyword">end</span><span class="operator">)</span><span class="operator">;</span>
 <span class="keyword">end</span><span class="operator">;</span></code></pre>
-</section>
+</div>
 
 <p>Taki kod jest czytelniejszy niż ręczna obsługa <code>First</code>, <code>Next</code>, <code>Eof</code>, wyłączaniem UI i przywracaniem pozycji kursora za każdym razem, gdy iterujesz.</p>
 
 <p>Zapewne już teraz masz w głowie pytanie: &quot;Czy to nie jest tak, że bardzo podobnie wygląda ten kod korzystając z &quot;utility function&quot;? Odpowiedź brzmi: &quot;Tak, ale z kluczową różnicą&quot;. Przyjżyjmy się jej bliżej:</p>
 
-<section class="code">
+<div class="code" data-language="object-pascal">
 <pre><code><span class="keyword">uses</span>
   Data<span class="operator">.</span><span class="property">DB</span><span class="operator">,</span>
   MyProjectUtilities<span class="operator">;</span>
@@ -197,7 +197,7 @@
       aNames<span class="operator">.</span><span class="routine">Add</span><span class="operator">(</span>aDataSet<span class="operator">.</span><span class="routine">FieldByName</span><span class="operator">(</span><span class="string">&#39;city&#39;</span><span class="operator">)</span><span class="operator">.</span><span class="property">AsString</span><span class="operator">)</span><span class="operator">;</span>
     <span class="keyword">end</span><span class="operator">)</span><span class="operator">;</span>
 <span class="keyword">end</span><span class="operator">;</span></code></pre>
-</section>
+</div>
 
 <p>Zapewne zauważyłeś, że w tym drugim przykładzie <code>ForEachRow</code> jest globalną funkcją, a nie metodą helpera. Różnica wydaje się subtelna, ale ma duże znaczenie dla czytelności oraz łatwości odkrywania funkcji pomocniczych, których w kodzie jest wiele, czasem o podobnych lub mało precyzyjnych nazwach. Wydobycie takiej funcji jako helpera sprawia, że jest ona łatwiejsza do znalezienia, a jej intencja jest bardziej oczywista. Wystarczy spojrzeć na <code>aDataSet.ForEachRow</code> i od razu wiadomo, że chodzi o iterację po wierszach tego datasetu. W przypadku globalnej funkcji <code>ForEachRow(aDataSet, ...)</code> trzeba już wiedzieć, że taka funkcja istnieje i gdzie jej szukać.</p>
 
@@ -292,6 +292,8 @@
       </footer>
     </div>
   </main>
+
+  <script src="add-copy-buttons.js"></script>
 
 </body>
 

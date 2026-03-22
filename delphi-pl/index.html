@@ -473,7 +473,7 @@
 
   <script>
     // --------------------------------------------------
-    const posts = [
+    const availablePosts = [
       {
         postId: 1,
         language: 'en',
@@ -481,7 +481,8 @@
         author: 'Bogdan Polak',
         intro: 'Delphi projects tend to accumulate a lot of procedural glue over time, usually in the form of utility functions. That code works, but reading it becomes increasingly expensive. The same patterns show up in different parts of the codebase. Class helpers available in all modern Delphi versions are one of the simplest ways to make that code easier to read.',
         date: '2026-03-13',
-        href: './class-helpers-readable-code-en.html'
+        href: './001-class-helpers-readable-code-en.html',
+        coverImage: './images/001-cover-image.png'
       },
       {
         postId: 1,
@@ -490,8 +491,29 @@
         author: 'Bogdan Polak',
         intro: 'Projekty Delphi z czasem gromadzą dużo proceduralnego kodu pomocniczego, zwykle w postaci funkcji narzędziowych. Ten kod działa, ale jego czytanie staje się coraz bardziej kosztowne. Te same wzorce pojawiają się w różnych częściach kodu. Class helpers dostępne we wszystkich nowoczesnych wersjach Delphi są jednym z najprostszych sposobów, aby uczynić ten kod łatwiejszym do czytania.',
         date: '2026-03-13',
-        href: './class-helpers-readable-code-pl.html'
-      }
+        href: './001-class-helpers-readable-code-pl.html',
+        coverImage: './images/001-cover-image.png'
+      },
+      {
+        postId: 2,
+        language: 'en',
+        title: 'Safe Refactoring with the Introduce Parameter Object Pattern',
+        author: 'Bogdan Polak',
+        intro: 'Refactoring can feel risky, especially when you work with code where state is spread across many arguments and business logic is split between multiple modules. A practical way to reduce that risk is to group related arguments into a single context object and migrate call sites in small, verified steps. In this article, we will examine that idea using a Monopoly example and show how to apply the `Introduce Parameter Object` pattern in a legacy codebase.',
+        date: '2026-03-23',
+        href: './002-refactoring-parameter-object-en.html',
+        coverImage: './images/002-cover-image.png'
+      },
+      {
+        postId: 2,
+        language: 'pl',
+        title: 'Bezpieczna refaktoryzacja z Introduce Parameter Object',
+        author: 'Bogdan Polak',
+        intro: 'Refaktoryzacja może wydawać się ryzykowna, zwłaszcza gdy pracujesz z kodem, w którym stan jest rozproszony na wiele argumentów, a logika biznesowa zapisana w  wielu modułach. Praktycznym sposobem na zmniejszenie tego ryzyka jest grupowanie powiązanych argumentów w jeden obiekt kontekstu i migracja wywołań w małych, weryfikowanych krokach. W tym artykule przeanalizujemy tę ideę na przykładzie gry planszowej Monopoly i pokażemy, jak w praktyce zastosować wzorzec `Introduce Parameter Object` w zastanym kodzie.',
+        date: '2026-03-23',
+        href: './002-refactoring-parameter-object-pl.html',
+        coverImage: './images/002-cover-image.png'
+      },
     ];
     // --------------------------------------------------
 
@@ -507,7 +529,7 @@
     }
 
     function renderPosts(htmlLanguage) {
-      const visiblePosts = posts.filter((post) => post.language === htmlLanguage);
+      const visiblePosts = availablePosts.filter((post) => post.language === htmlLanguage);
 
       document.documentElement.lang = htmlLanguage;
 
@@ -524,21 +546,21 @@
     }
 
     function renderPostCard(post) {
-      const txtEngCoverImageLSlot = 'Cover image slot';
-      const txtEngDate = 'Date';
-      const txtEngAuthor = 'Author';
-      const txtEngLanguage = 'Language';
-      const txtEngLanguageName = activeLanguage === 'en' ? 'English' : 'Polski';
-      const txtEngImagePlaceholder = 'PNG Placeholder';
-      const txtEngOpenArticle = 'Open article';
+      const labelCoverImageLSlot = 'Cover image slot';
+      const labelDate = 'Date';
+      const labelAuthor = 'Author';
+      const labelLanguage = 'Language';
+      const labelLanguageName = activeLanguage === 'en' ? 'English' : 'Polski';
+      const labelImagePlaceholder = 'PNG Placeholder';
+      const labelOpenArticle = 'Open article';
 
       return `
         <article class="post-card">
           <div class="post-body">
             <div class="post-meta">
-              ${createMetaItem(txtEngDate, post.date)}
-              ${createMetaItem(txtEngAuthor, post.author)}
-              ${createMetaItem(txtEngLanguage, txtEngLanguageName)}
+              ${createMetaItem(labelDate, post.date)}
+              ${createMetaItem(labelAuthor, post.author)}
+              ${createMetaItem(labelLanguage, labelLanguageName)}
             </div>
             <h3 class="post-title">${post.title}</h3>
 
@@ -546,16 +568,16 @@
               <div class="thumb">
                 <!--
                 <div class="thumb-badge">
-                  <strong>${txtEngImagePlaceholder}</strong>
-                  <span>${txtEngCoverImageLSlot}</span>
+                  <strong>${labelImagePlaceholder}</strong>
+                  <span>${labelCoverImageLSlot}</span>
                 </div>
                 -->
-                <img src="./images/post001-image-001.png" alt="${post.title} cover image" width="280" height="220" loading="lazy">
+                <img src="${post.coverImage}" alt="${post.title} cover image" width="280" height="220" loading="lazy">
               </div>
               <div class="post-details">
                 <p class="post-intro">${post.intro}</p>
                 <div class="post-actions">
-                  <a class="button button-primary" href="${post.href}">${txtEngOpenArticle}</a>
+                  <a class="button button-primary" href="${post.href}">${labelOpenArticle}</a>
                 </div>
               </div>
             </div>
