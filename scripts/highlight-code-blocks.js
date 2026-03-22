@@ -434,18 +434,18 @@
 		if (normalized === 'js' || normalized === 'javascript') {
 			return 'javascript';
 		}
-		if (normalized === 'pascal' || normalized === 'objectpascal' || normalized === 'object-pascal') {
+		if (normalized === 'pascal' || normalized === 'objectpascal' || normalized === 'object-pascal' || normalized === 'delphi') {
 			return 'object-pascal';
 		}
 		return normalized;
 	}
 
 	function inferLanguage(source) {
-		if (/(^|\W)(const|let|function|export|import|return|this|class|extends|await|async)(\W|$)/.test(source) || source.includes('=>')) {
-			return 'javascript';
-		}
-		if (/(^|\W)(begin|end|procedure|function|unit|interface|implementation|var)(\W|$)/i.test(source)) {
+		if (/(^|\W)(begin|end|procedure|unit|interface|implementation|var)(\W|$)/i.test(source)) {
 			return 'object-pascal';
+		}
+		if (/(^|\W)(const|let|export|import|return|this|extends|await|async)(\W|$)/.test(source) || source.includes('=>')) {
+			return 'javascript';
 		}
 		return 'plain-text';
 	}
