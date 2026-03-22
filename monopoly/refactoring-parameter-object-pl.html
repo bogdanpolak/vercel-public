@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bezpieczna refaktoryzacja z Introduce Parameter Object</title>
+  <meta name="description" content="Jak w sposób bezpieczny zastąpić wiele parametrów jednym obiektem, tak aby kod był łatwiejszy w zarządzaniu.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;300;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./article.css">
+</head>
+
+<body>
+  <main class="page">
+    <div class="shell">
+      <header class="hero">
+        <div class="hero-grid">
+          <div>
+            <div class="meta" aria-label="Article metadata">
+              <span>2026-03-23</span>
+              <span>Bogdan Polak</span>
+              <span>pl</span>
+            </div>
+            <h1>Bezpieczna refaktoryzacja z Introduce Parameter Object</h1>
+            <p class="hero-intro">Jak w sposób bezpieczny zastąpić wiele parametrów jednym obiektem, tak aby kod był łatwiejszy w zarządzaniu.</p>
+          </div>
+          <figure class="cover">
+            <img src="images/refactoring-parameter-object.png" alt="Ilustracja inspirowana grą Monopoly, bezpieczne zastąpienie wielu parametrów jednym obiektem w publicznych funkcjach" loading="lazy">
+            <figcaption>Ilustracja inspirowana grą Monopoly, bezpieczne zastąpienie wielu parametrów jednym obiektem w publicznych funkcjach</figcaption>
+          </figure>
+        </div>
+      </header>
+
+      <div class="article-wrap">
+        <article class="content">
+          
+<h1>Bezpieczne wprowadzenie Introduce Parameter Object</h1>
+
+<h2>Motywacja</h2>
+
+<p>Refaktoryzacja może wydawać się ryzykowna, w kodzie słabo zabezpieczonym testami jednostkowymi, dlatego ogólnie znanym zaleceniem jest wprowadzanie gęstej siatki testów. Jednak w przypadku niektórych refaktoryzacji, takich jak <code>Introduce Parameter Object</code>, duża ilość testów może znacznie utrudnić migrację, ponieważ w istotny sposób zmieniane są interfejsy funkcji publicznych. To może prowadzić do przypadkowego uszkodzenia wielu testów, czyli do utraty zaufania do testów.</p>
+
+<p>Stąd wielu programistów może być zniechęconych do tego wzorca, jednak eksperci, tacy jak Martin Fowler i Robert C. Martin, zgadzają się, że jest to kluczowa refaktoryzacja, która może znacznie poprawić łatwość konserwacji kodu. Robert C. Martin w książce Clean Code definiuje wiele aspektów czystej funkcji, jeden z nich dotyczy liczby parametrów:</p>
+
+<blockquote><strong>Parametry Funkcji:</strong> Idealna liczba argumentów dla funkcji to Zero. Następnie jeden, a tuż za nim dwa. Trzy argumenty powinny być unikane, gdzie to możliwe. Więcej niż trzy jest nie do zaakceptowania. W większości przypadków mogą być wyekstrahowane do klasy. --- <strong>Robert C. Martin</strong> - Clean Code: A Handbook of Agile Software Craftsmanship, 2008.</blockquote>
+
+<p>Martin Fowler w książce Refactoring definiuje zapaszek kodu (ang. Code Smell) związany ze zbyt dużą liczbą parametrów:</p>
+
+<blockquote><strong>Data Clumps:</strong> Kępy Danych to jeden z moich ulubionych zapachów kodu. Zauważysz go, gdy po raz kolejny widzisz te same dane przekazywane razem. Dobrym przykładem są start i end w zakresie dat. Rozwiązaniem jest zastosowanie klasy Range. Często Data Clumps to wartości prymitywne, o których nikt nie myśli jako o obiekcie. --- <strong>Martin Fowler</strong> - Refactoring: Improving the Design of Existing Code, 2016.</blockquote>
+
+<p>Dlatego w tym artykule spróbuję przekonać niechętnych, jak w bezpieczny sposób wprowadzić ten wzorzec, nawet w kodzie, który ma gęstą sieć testów jednostkowych. Dalej w tym artykule będę używać praktycznego przykładu z gry planszowej Monopoly, w celu ilustracji procesu. Wprowadzanie tego wzorca przypomina trochę technikę znaną w inżynierii lądowej, nazywaną &quot;kanałem dywersyjnym&quot; (ang. diversion channel). Jest ona sposobem na bezpieczne prowadzenie przebudowy (ang. dry construction zone = bezpieczna strefa budowy). W czasie migracji kodu będziemy korzystać z dwóch wersji interfejsów funkcji publicznych starej i nowej, co przypomina tymczasowy kanał dywersyjny, który przekierowuje ruch z jednej trasy na drugą, podczas gdy stara trasa jest stopniowo zamykana.</p>
+
+<figure>
+  <img src="./images/diversion-channel.png" alt="Aby zbudować tamę na rzece, inżynierowie tworzą tymczasowy kanał dywersyjny, który kieruje wodę wokół miejsca budowy.">
+  <figcaption>Aby zbudować tamę na rzece, inżynierowie tworzą tymczasowy kanał dywersyjny, który kieruje wodę wokół miejsca budowy.</figcaption>
+</figure>
+
+<h2>Wzorzec: Introduce Parameter Object</h2>
+
+<p>Jak już wspomniano wcześniej, ten wzorzec jest istotnym narzędziem w arsenale refaktoryzacji, który pomaga poprawić czytelność i spójność kodu poprzez grupowanie powiązanych parametrów w jeden obiekt. Jest to szczególnie przydatne, gdy masz funkcję lub metodę, która przyjmuje wiele parametrów.</p>
+<p>Wzorzec został wprowadzony przez Martina Fowlera. Autor zachęca aby stosować go szczególnie w sytuacjach, gdy oglądając kod widzisz funkcję/metodę, która przyjmuje kilka parametrów (więcej niż dwa), które:</p>
+
+<ul>
+    <li>często pojawiają się razem</li>
+    <li>należą do jednego logicznego kontekstu</li>
+    <li>powodują, że sygnatura funkcji jest trudna do zrozumienia</li>
+    <li>powodują powtarzającą się wieloliniową sekcję przygotowania danych w testach (sekcja: &quot;arrange&quot;)</li>
+</ul>
+<p>Opisany problem Kęp Danych wywołuje ogólną degradację jakości kodu. Rozprasza wiedzę o operacjach między różnymi modułami, co utrudnia rozwój kodu i naprawę wykrytych błędów. Wzorzec <code>Introduce Parameter Object</code> pomaga rozwiązać problem tego zapachu kodu, tworząc jasną granicę dla powiązanych danych i operacji/funkcji. Gdy zobaczysz funkcję, która ma takie słabości, a przy tym ma krytyczne znaczenie w Twoim projekcie, to właśnie znalazłeś dobrego kandydata na wprowadzenie tego wzorca.</p>
+
+<figure>
+  <img src="./images/introduce-parameter-object.png" alt="Szary kot z trudnością utrzymuje stos luźnych kart i wygląda na przytłoczonego. Z kolei pomarańczowy kot uporządkował swoje karty i wskazuje na schludny domek &quot;Database Connection Class&quot;, gdzie wszystkie karty są zgrupowane razem.">
+  <figcaption>Szary kot z trudnością utrzymuje stos luźnych kart i wygląda na przytłoczonego. Z kolei pomarańczowy kot uporządkował swoje karty i wskazuje na schludny domek &quot;Database Connection Class&quot;, gdzie wszystkie karty są zgrupowane razem.</figcaption>
+</figure>
+
+<p>Istnieje wiele innych wzorców projektowych i refaktoryzacji, które mogą pomóc w ulepszeniu kodu, jednak w tym artykule skupimy się tylko na wzorcu <code>Introduce Parameter Object</code> i związanym z nim zapachem <code>Data Clumps</code>.</p>
+
+<h2>Gra Monopoly - ilustracja problemu</h2>
+
+<p>Zilustruję powyższy problem kodu praktycznym przykładem z projektu JavaScript obsługującego cyfrową wersję gry planszowej Monopoly.</p>
+
+<p>Przed rozpoczęciem refaktoryzacji projekt miał kilka funkcji, które przyjmowały od 2 do 4 powiązanych ze sobą argumentów, takich jak <code>players</code>, <code>board</code>. Równocześnie funkcje operujące na stanie gry znajdowały się w różnych plikach/modułach. Taka sytuacja powodowała, że stan gry i logika  były trudne do zrozumienia i modyfikacji.</p>
+
+<ul>
+    <li>Stan gry był rozproszony na kilka odrębnych wartości:
+        <ul>
+            <li><code>players</code> - tablica obiektów graczy, z których każdy ma swoje własne właściwości, takie jak position, isBankrupt, id itp.</li>
+            <li><code>board</code> - tablica reprezentująca planszę, gdzie każdy element to kafelek z różnymi parametrami, takimi jak type, name, price itp.</li>
+            <li><code>currentPlayerId</code> - identyfikator bieżącego gracza</li>
+            <li><code>currentDiceRoll</code> - wynik ostatniego rzutu kośćmi</li>
+        </ul>
+    </li>
+    <li>funkcje operujące na stanie gry były rozproszone w kilku modułach:
+        <ul>
+            <li><code>rollDice()</code> - funkcja odpowiedzialna za symulację rzutu kośćmi, która była używana w wielu miejscach, ale nie była powiązana z żadnym konkretnym obiektem gry</li>
+            <li><code>currentPlayer(players, playerId)</code> - funkcja, która zwracała bieżącego gracza na podstawie currentPlayerId, ale była zdefiniowana w innym module niż funkcje operujące na graczach</li>
+            <li><code>activePlayers(players)</code> - funkcja, która zwracała listę aktywnych graczy</li>
+            <li><code>countActivePlayers(players)</code> - funkcja, która zliczała aktywnych graczy</li>
+            <li><code>nextActivePlayer(players, playerId)</code> - funkcja, która zwracała następnego aktywnego gracza</li>
+        </ul>
+    </li>
+    <li>kluczowa logika gry zapisana w funkcjach przyjmujących różne kombinacje powyższych wartości jako argumenty:
+        <ul>
+            <li><code>movePlayer()</code> - logika ruchu po planszy (tutaj pojawił się zapach Kęp Danych)</li>
+            <li><code>processLocationRules()</code> - reguły lądowania w nowej lokalizacji wewnątrz</li>
+            <li><code>processPayRentRules()</code> - reguły płacenia czynszu po wylądowaniu gracza na czyjejś własności</li>
+            <li><code>processBankruptcyRules()</code> - reguły bankructwa, które sprawdzały, czy gracz jest bankrutem po każdej operacji finansowej</li>
+        </ul>
+    </li>
+</ul>
+<p>Początkowo główna pętla gry wyglądała tak (uproszczona dla celów ilustracyjnych, nie jest to dokładna implementacja):</p>
+
+<div class="code" data-language="javascript">
+<pre><code><span class="keyword">const</span> board <span class="operator">=</span> <span class="routine">createBoard</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span>
+<span class="keyword">const</span> players <span class="operator">=</span> <span class="routine">createPlayers</span><span class="operator">(</span><span class="operator">[</span>
+  <span class="string">&quot;Luke Skywalker&quot;</span><span class="operator">,</span> 
+  <span class="string">&quot;Darth Vader&quot;</span><span class="operator">,</span> 
+  <span class="string">&quot;Han Solo&quot;</span><span class="operator">,</span> 
+  <span class="string">&quot;Leia Organa&quot;</span>
+<span class="operator">]</span><span class="operator">)</span><span class="operator">;</span>
+
+<span class="routine">showIntro</span><span class="operator">(</span>players<span class="operator">)</span><span class="operator">;</span>
+
+<span class="keyword">let</span> player <span class="operator">=</span> <span class="routine">nextActivePlayer</span><span class="operator">(</span>players<span class="operator">,</span> currentPlayerId<span class="operator">)</span><span class="operator">;</span>
+<span class="keyword">while</span> <span class="operator">(</span>player <span class="operator">!==</span> <span class="boolean">null</span><span class="operator">)</span> <span class="operator">{</span>
+  <span class="keyword">let</span> doublesCount <span class="operator">=</span> <span class="number">0</span><span class="operator">;</span>
+  <span class="keyword">let</span> hasDouble <span class="operator">=</span> <span class="boolean">true</span><span class="operator">;</span>
+  <span class="keyword">while</span> <span class="operator">(</span>hasDouble <span class="operator">&amp;&amp;</span> doublesCount <span class="operator">&lt;</span> <span class="number">3</span> <span class="operator">&amp;&amp;</span> <span class="operator">!</span>player<span class="operator">.</span><span class="property">isBankrupt</span><span class="operator">)</span> <span class="operator">{</span>
+    <span class="keyword">const</span> roll <span class="operator">=</span> <span class="routine">rollDice</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span>
+
+    <span class="routine">movePlayer</span><span class="operator">(</span>player<span class="operator">,</span> board<span class="operator">,</span> players<span class="operator">,</span> roll<span class="operator">.</span><span class="property">total</span><span class="operator">)</span><span class="operator">;</span>
+
+    hasDouble <span class="operator">=</span> roll<span class="operator">.</span><span class="property">isDouble</span><span class="operator">;</span>
+    <span class="keyword">if</span> <span class="operator">(</span>hasDouble<span class="operator">)</span> <span class="operator">{</span>
+      doublesCount<span class="operator">++</span><span class="operator">;</span>
+    <span class="operator">}</span>
+  <span class="operator">}</span>
+  player <span class="operator">=</span> <span class="routine">nextActivePlayer</span><span class="operator">(</span>players<span class="operator">,</span> currentPlayerId<span class="operator">)</span><span class="operator">;</span>
+<span class="operator">}</span>
+
+<span class="routine">showSummary</span><span class="operator">(</span>players<span class="operator">)</span><span class="operator">;</span></code></pre>
+</div>
+
+<p>Ta wersja działa, ale dane i funkcje przez nią używane są rozproszone. Jeśli chcesz zmienić śledzenie listy aktywnych graczy, porządek tur lub reguły dotyczące obsługi wodociągów i zakładu energetycznego, musisz dotknąć kilku miejsc na raz.</p>
+
+<p>Problemy widoczne już na zewnątrz, stają się o wiele poważniejsze wewnątrz funkcji <code>movePlayer()</code>. Przyjmuje ona 4 parametry: <code>player</code>, <code>board</code>, <code>players</code> i <code>rollTotal</code> i zawiera dużo kluczowych reguł gry, takich jak: pójście do więzienia, sprawdzenie, czy gracz jest bankrutem, sprawdzenie, czy gracz wylądował na czyjejś własności i musi zapłacić czynsz, itp. To jest duża funkcja z wieloma odpowiedzialnościami, która nawet w aktualnym stanie była trudna do zrozumienia i modyfikacji. Wraz z rozwojem projektu w tym miejscu może być tylko gorzej.  Pochopna decyzja podjęta na początku projektowania gry, czyli trzymanie stanu gry na wielu odrębnych wartościach, utrudnia wprowadzanie zmian, takich jak elastyczny system reguł gry, który spełnia regułę Otwarte-Zamknięte (ang. Open-Closed Principle) z zasad SOLID.</p>
+
+<h2>Komentarz architektoniczny</h2>
+
+<p>Powyżej wspomniałem już o zasadzie Open-Closed (OCP), ale jest jeszcze jedna ważna zasada w SOLID, która jest kluczowa dla tej refaktoryzacji, a mianowicie zasada Single Responsibility Principle (SRP).</p>
+
+<p>Zasada SRP mówi, że klasa tego typu nie może być zbyt duża, a dokładniej, powinna mieć tylko jedną odpowiedzialność, czyli powinna być odpowiedzialna za tylko jeden aspekt funkcjonalności systemu. W kontekście gry Monopoly, obiekt <code>game</code> powinien być odpowiedzialny za zarządzanie stanem gry. W przypadku takiego obiektu bardzo łatwo jest naruszyć zasadę SRP, bo wydaje się, że obiekt gry powinien zawierać wszystkie aspekty gry, nawet komunikację z serwerem REST lub zapisywanie danych do pliku. Dobre podzielenie granicy wymaga doświadczenia i wieloletniej praktyki. Nie powinniśmy dodawać do niego nawet reguł kupowania własności czy płacenia czynszu. Zadaniami tymi powinny zająć się osobne moduły/klasy.</p>
+
+<p>Poszukaj granicy separującej blisko zaprzyjaźnione wartości, a nie o &quot;wiadrze na wszystko&quot;. Pamiętaj o kluczowej zasadzie: nie wrzucaj zbyt wiele do jednego obiektu. Jeśli granica została za mocno rozszerzona, powinniśmy odpowiedzialność klasy zawęzić, zazwyczaj dzieląc obiekt na mniejsze części. Temat ustalania granic jest bardzo ważny dla projektowania systemów i opisuje go wiele reguł, takich jak omawiana teraz zasada SRP lub inne: Separation of Concerns, czy Event Storming w Domain-Driven Design. Taki obiekt &quot;wiadro&quot;, zawierający zbyt wiele odpowiedzialności, nazywany jest boskim obiektem (ang. God Object) i jest antywzorem projektowym.</p>
+
+<h2>Refaktoryzacja krok po kroku</h2>
+
+<ol>
+    <li><strong>Tworzenie obiektu <code>game</code>.</strong>
+        <ul>
+            <li>Utwórz funkcję <code>createGame(playerNames)</code>, która zwraca obiekt <code>game</code> z początkowym stanem gry, w tym tablicą graczy, planszą, bieżącym graczem i funkcjami pomocniczymi do nawigacji po stanie gry.</li>
+            <li>Upewnij się, że <code>createGame()</code> jest dobrze przetestowane, aby mieć pewność, że zwraca obiekt o oczekiwanym kształcie i zachowaniu. To jest kluczowy krok, ponieważ <code>game</code> będzie nową granicą dla wielu funkcji, więc ważne jest, aby był stabilny i dobrze zdefiniowany
+                <div class="code" data-language="javascript">
+                <pre><code><span class="routine">test</span><span class="operator">(</span><span class="string">&quot;createGame returns expected shape&quot;</span><span class="operator">,</span> <span class="operator">(</span><span class="operator">)</span> <span class="operator">=&gt;</span> <span class="operator">{</span>
+<span class="keyword">const</span> game <span class="operator">=</span> <span class="routine">createGame</span><span class="operator">(</span><span class="operator">[</span><span class="string">&quot;Luke&quot;</span><span class="operator">,</span> <span class="string">&quot;Leia&quot;</span><span class="operator">]</span><span class="operator">)</span><span class="operator">;</span>
+<span class="routine">expect</span><span class="operator">(</span>game<span class="operator">.</span><span class="property">players</span><span class="operator">)</span><span class="operator">.</span><span class="property">toHaveLength</span><span class="operator">(</span><span class="number">2</span><span class="operator">)</span><span class="operator">;</span>
+<span class="routine">expect</span><span class="operator">(</span>game<span class="operator">.</span><span class="property">currentPlayerId</span><span class="operator">)</span><span class="operator">.</span><span class="property">toBeNull</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span>
+<span class="routine">expect</span><span class="operator">(</span>game<span class="operator">.</span><span class="property">board</span><span class="operator">)</span><span class="operator">.</span><span class="property">toBeDefined</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span>
+<span class="operator">}</span><span class="operator">)</span><span class="operator">;</span></code></pre>
+                </div>
+            </li>
+            <li>Przejdź do kolejnego kroku, gdy masz silne testy dla <code>createGame()</code>.</li>
+        </ul>
+    </li>
+    <li><strong>Wprowadzenie kanału dywersyjnego.</strong>
+        <ul>
+            <li>Stwórz <code>movePlayer_new()</code> ale wewnętrznie deleguj do starej funkcji, aby zachować istniejące zachowanie. To pozwala na stopniową migrację wywołań <code>movePlayer</code> bez natychmiastowego uszkadzania systemu testowego.
+                <div class="code" data-language="javascript">
+                <pre><code><span class="keyword">function</span> <span class="routine">movePlayer_new</span><span class="operator">(</span>game<span class="operator">)</span> <span class="operator">{</span>
+    <span class="routine">movePlayer</span><span class="operator">(</span>
+        game<span class="operator">.</span><span class="property">currentPlayer</span><span class="operator">(</span><span class="operator">)</span><span class="operator">,</span> 
+        game<span class="operator">.</span><span class="property">board</span><span class="operator">,</span> 
+        game<span class="operator">.</span><span class="property">players</span><span class="operator">,</span> 
+        game<span class="operator">.</span><span class="property">currentDiceRoll</span><span class="operator">.</span><span class="property">total</span><span class="operator">)</span><span class="operator">;</span>
+<span class="operator">}</span></code></pre>
+                </div>
+            </li>
+            <li>Przejdź do kolejnego kroku, gdy upewnisz się, że <code>movePlayer_new</code> działa poprawnie w jednym z testów.</li>
+        </ul>
+    </li>
+    <li><strong>Zaktualizuj testy</strong>
+        <ul>
+            <li>Zaktualizuj testy <code>movePlayer</code> do używania <code>movePlayer_new(game)</code>. Oceń rozmiar migracji testów. Jeśli migracja ma potrwać dłużej, pozostaw oba warianty testów, aby je stopniowo migrować jeden po drugim.</li>
+            <li>Często uruchamiaj testy, aby upewnić się, że one nadal przechodzą (włącz automatyczne uruchamianie testów w tzw. trybie &quot;watch&quot;).
+                <div class="code" data-language="javascript">
+                <pre><code><span class="routine">test</span><span class="operator">(</span><span class="string">&quot;movePlayer - Obi-Wan passing Start and buys location&quot;</span><span class="operator">,</span> <span class="operator">(</span><span class="operator">)</span> <span class="operator">=&gt;</span> <span class="operator">{</span>
+<span class="keyword">const</span> game <span class="operator">=</span> <span class="routine">createTestGame</span><span class="operator">(</span><span class="operator">[</span>
+    <span class="comment">// Obi-Wan starts at Pacific Avenue with $1500</span>
+    <span class="operator">{</span> <span class="identifier">name</span><span class="operator">:</span> <span class="string">&quot;Obi-Wan&quot;</span><span class="operator">,</span> <span class="identifier">position</span><span class="operator">:</span> <span class="number">31</span> <span class="operator">}</span><span class="operator">,</span>
+<span class="operator">]</span><span class="operator">)</span><span class="operator">;</span>
+game<span class="operator">.</span><span class="property">currentDiceRoll</span> <span class="operator">=</span> <span class="operator">{</span> <span class="identifier">total</span><span class="operator">:</span> <span class="number">10</span> <span class="operator">}</span><span class="operator">;</span>
+
+<span class="routine">movePlayer_new</span><span class="operator">(</span>game<span class="operator">)</span><span class="operator">;</span>
+
+<span class="comment">// Obi-Wan passes Start and lands on Mediterranean Avenue</span>
+<span class="comment">// - collects $200 for passing Start, </span>
+<span class="comment">// - buys Mediterranean Avenue, price is $60</span>
+assert<span class="operator">.</span><span class="property">equal</span><span class="operator">(</span>game<span class="operator">.</span><span class="property">players</span><span class="operator">[</span><span class="number">0</span><span class="operator">]</span><span class="operator">.</span><span class="property">position</span><span class="operator">,</span> <span class="number">1</span><span class="operator">)</span><span class="operator">;</span>
+assert<span class="operator">.</span><span class="property">equal</span><span class="operator">(</span>game<span class="operator">.</span><span class="property">players</span><span class="operator">[</span><span class="number">0</span><span class="operator">]</span><span class="operator">.</span><span class="property">money</span><span class="operator">,</span> <span class="number">1500</span> <span class="operator">+</span> <span class="number">200</span> <span class="operator">-</span> <span class="number">60</span><span class="operator">)</span><span class="operator">;</span>
+<span class="operator">}</span><span class="operator">)</span><span class="operator">;</span></code></pre>
+                </div>
+            </li>
+            <li>Przejdź do kolejnego kroku, gdy wszystkie testy przechodzą.</li>
+        </ul>
+    </li>
+    <li><strong>Migracja wywołań w kodzie produkcyjnym.</strong>
+        <ul>
+            <li>Zaktualizuj wszystkie wywołania <code>movePlayer(player, board, players, steps)</code> do <code>movePlayer_new(game)</code>. Ponownie, jeśli migracja jest duża, pozostaw oba warianty i migruj je stopniowo, uruchamiając testy po każdej zmianie.</li>
+            <li>Aby ułatwić śledzenie postępów migracji, możesz zmienić nazwę starej funkcji na <code>movePlayer_old()</code> aby mieć jasność, która jest aktualnie używana w kodzie produkcyjnym.</li>
+            <li>Przenieś pełną implementację procesowania ruchu gracza do funkcji <code>movePlayer_new()</code>. Pozwoli to na stopniowe usuwanie odwołania do starej funkcji.</li>
+            <li>Po zakończeniu, upewnij się, że wszystkie testy przechodzą.</li>
+            <li>Usuń starą funkcję <code>movePlayer_old()</code> oraz wszystkie stare testy.</li>
+            <li>Zmień nazwę <code>movePlayer_new()</code> z powrotem na <code>movePlayer()</code>.</li>
+        </ul>
+    </li>
+</ol>
+<p>Zmiana wszystkiego naraz byłaby ryzykowna i łatwo mogłaby doprowadzić do degradacji testów, pominięcia kluczowego scenariusza lub wprowadzenia krytycznych błędów w kodzie produkcyjnym, dlatego bezpieczniejsza ścieżka to:</p>
+
+<ol>
+    <li>Utrzymaj stare zachowanie do samego końca migracji.</li>
+    <li>Dodaj tymczasowy adapter, wywołujący starą funkcję.</li>
+    <li>Przeprowadź stopniową migrację testów.</li>
+    <li>Zwiń kod produkcyjny ostatecznej formy <code>movePlayer(game)</code></li>
+</ol>
+<p>Adapter <code>movePlayer_new</code> to nie cel, a jedynie pomoc w migracji. Wprowadzasz go, aby utrzymać zachowanie na czas, gdy wywołujący przechodzą ze starej sygnatury funkcji na nową. Dlatego tak dobrą ilustracją tego procesu jest kanał dywersyjny. Dostajemy suchą strefę budowy (ang. dry construction zone), w której możemy bezpiecznie wprowadzać zmiany, a następnie stopniowo przenosić ruch z starej trasy (starej sygnatury funkcji) na nową (nową sygnaturę funkcji). Gdy cały ruch jest już na nowej trasie, stara trasa jest usuwana, a nowa staje się jedyną drogą do celu.</p>
+
+<h2>Przykład createGame i adaptera</h2>
+
+<p>Oto jak wygląda nowa granica projektu dla obiektu gry:</p>
+
+<div class="code" data-language="javascript">
+<pre><code><span class="keyword">export</span> <span class="keyword">function</span> <span class="routine">createGame</span><span class="operator">(</span>playerNames<span class="operator">)</span> <span class="operator">{</span>
+  <span class="keyword">const</span> players <span class="operator">=</span> <span class="routine">createPlayers</span><span class="operator">(</span>playerNames<span class="operator">)</span><span class="operator">;</span>
+
+  <span class="keyword">return</span> <span class="operator">{</span>
+    <span class="identifier">currentPlayerId</span><span class="operator">:</span> <span class="boolean">null</span><span class="operator">,</span>
+    <span class="identifier">currentDiceRoll</span><span class="operator">:</span> <span class="boolean">null</span><span class="operator">,</span>
+    players<span class="operator">,</span>
+    <span class="identifier">board</span><span class="operator">:</span> <span class="routine">createBoard</span><span class="operator">(</span><span class="operator">)</span><span class="operator">,</span>
+    <span class="routine">rollDice</span><span class="operator">(</span><span class="operator">)</span> <span class="operator">{</span>
+      <span class="keyword">const</span> roll <span class="operator">=</span> <span class="routine">rollDice</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span>
+      <span class="keyword">this</span><span class="operator">.</span><span class="property">currentDiceRoll</span> <span class="operator">=</span> roll<span class="operator">;</span>
+      <span class="keyword">return</span> roll<span class="operator">;</span>
+    <span class="operator">}</span><span class="operator">,</span>
+    <span class="routine">currentPlayer</span><span class="operator">(</span><span class="operator">)</span> <span class="operator">{</span>
+      <span class="keyword">return</span> <span class="keyword">this</span><span class="operator">.</span><span class="property">players</span><span class="operator">.</span><span class="property">find</span><span class="operator">(</span><span class="operator">(</span>player<span class="operator">)</span> <span class="operator">=&gt;</span> player<span class="operator">.</span><span class="property">id</span> <span class="operator">===</span> <span class="keyword">this</span><span class="operator">.</span><span class="property">currentPlayerId</span><span class="operator">)</span> <span class="operator">??</span> <span class="boolean">null</span><span class="operator">;</span>
+    <span class="operator">}</span><span class="operator">,</span>
+    <span class="routine">getActivePlayers</span><span class="operator">(</span><span class="operator">)</span> <span class="operator">{</span>
+      <span class="keyword">return</span> <span class="keyword">this</span><span class="operator">.</span><span class="property">players</span><span class="operator">.</span><span class="property">filter</span><span class="operator">(</span><span class="operator">(</span>player<span class="operator">)</span> <span class="operator">=&gt;</span> <span class="operator">!</span>player<span class="operator">.</span><span class="property">isBankrupt</span><span class="operator">)</span><span class="operator">;</span>
+    <span class="operator">}</span><span class="operator">,</span>
+    <span class="routine">countActivePlayers</span><span class="operator">(</span><span class="operator">)</span> <span class="operator">{</span>
+      <span class="keyword">return</span> <span class="keyword">this</span><span class="operator">.</span><span class="property">getActivePlayers</span><span class="operator">(</span><span class="operator">)</span><span class="operator">.</span><span class="property">length</span><span class="operator">;</span>
+    <span class="operator">}</span><span class="operator">,</span>
+    <span class="routine">nextActivePlayer</span><span class="operator">(</span><span class="operator">)</span> <span class="operator">{</span>
+      <span class="keyword">const</span> activePlayers <span class="operator">=</span> <span class="keyword">this</span><span class="operator">.</span><span class="property">getActivePlayers</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span>
+
+      <span class="keyword">if</span> <span class="operator">(</span>activePlayers<span class="operator">.</span><span class="property">length</span> <span class="operator">&lt;</span> <span class="number">2</span><span class="operator">)</span> <span class="operator">{</span>
+        <span class="keyword">this</span><span class="operator">.</span><span class="property">currentPlayerId</span> <span class="operator">=</span> <span class="boolean">null</span><span class="operator">;</span>
+        <span class="keyword">return</span> <span class="boolean">false</span><span class="operator">;</span>
+      <span class="operator">}</span>
+
+      <span class="keyword">const</span> player <span class="operator">=</span> <span class="keyword">this</span><span class="operator">.</span><span class="property">currentPlayer</span><span class="operator">(</span><span class="operator">)</span><span class="operator">;</span>
+      <span class="keyword">if</span> <span class="operator">(</span>player <span class="operator">===</span> <span class="boolean">null</span><span class="operator">)</span> <span class="operator">{</span>
+        <span class="keyword">this</span><span class="operator">.</span><span class="property">currentPlayerId</span> <span class="operator">=</span> activePlayers<span class="operator">[</span><span class="number">0</span><span class="operator">]</span><span class="operator">.</span><span class="property">id</span><span class="operator">;</span>
+      <span class="operator">}</span> <span class="keyword">else</span> <span class="operator">{</span>
+        <span class="keyword">const</span> idx <span class="operator">=</span> activePlayers<span class="operator">.</span><span class="property">findIndex</span><span class="operator">(</span>
+          <span class="operator">(</span>p<span class="operator">)</span> <span class="operator">=&gt;</span> p<span class="operator">.</span><span class="property">id</span> <span class="operator">===</span> player<span class="operator">.</span><span class="property">id</span><span class="operator">)</span><span class="operator">;</span>
+        <span class="keyword">const</span> nextIndex <span class="operator">=</span> <span class="operator">(</span>idx <span class="operator">+</span> <span class="number">1</span><span class="operator">)</span> <span class="operator">%</span> activePlayers<span class="operator">.</span><span class="property">length</span><span class="operator">;</span>
+        <span class="keyword">this</span><span class="operator">.</span><span class="property">currentPlayerId</span> <span class="operator">=</span> activePlayers<span class="operator">[</span>nextIndex<span class="operator">]</span><span class="operator">.</span><span class="property">id</span><span class="operator">;</span>
+      <span class="operator">}</span>
+      <span class="keyword">return</span> <span class="boolean">true</span><span class="operator">;</span>
+    <span class="operator">}</span><span class="operator">,</span>
+  <span class="operator">}</span><span class="operator">;</span>
+<span class="operator">}</span></code></pre>
+</div>
+
+<h2>Końcowe porady</h2>
+
+<p>Wzorzec <code>Introduce Parameter Object</code> może być kosztowny przy wprowadzaniu, ale zwraca się w każdej zmianie, która przychodzi później.</p>
+
+<p>Stosowanie refaktoringu to sztuka, która odróżnia dobry zespół programistów od przeciętnego. Mądry lider zespołu powinien zachęcać programistów do refaktoryzacji. Co pociąga za sobą inwestowanie czasu w silny zestaw testów jednostkowych. Brak lub za słabe testy to częsty powód unikania refaktoryzacji, co dalej prowadzi do degradacji jakości kodu oraz szybkiego gromadzenia długu technicznego. Z kolei duży dług techniczny prowadzi do spadku produktywności zespołu i jego morale, a w skrajnych przypadkach do konieczności przepisania projektu od nowa w &quot;lepszej, wymarzonej technologii&quot;, co jest kosztowne, ryzykowne i rzadko kiedy przynosi spodziewane efekty, ponieważ ten sam zespół popełni te same błędy, a zupełnie nowy zespół będzie miał ograniczoną wiedzę dziedzinową i doświadczenie.</p>
+
+<p>Z drugiej strony projektowanie &quot;na zapas&quot; w praktyce jest bardzo trudne, a nawet niemożliwe. W praktyce, gdy projektujemy system, nie mamy pełnej wiedzy o jego przyszłych wymaganiach, a nawet jeśli mamy, to wymagania te mogą się zmieniać w czasie. Dlatego ważne jest, aby mieć narzędzia i techniki do bezpiecznego wprowadzania zmian, które mają pomóc w poprawie jakości kodu i ułatwieniu jego utrzymania w dłuższej perspektywie.</p>
+
+<p>Refaktoryzacja to nie sztywne przepisy, ale raczej praktyczne wskazówki, które wymagają adaptacji i dopasowania. Mają one pomagać programistom podejmować świadome decyzje podczas przekształcania słabego kodu. W przypadku <code>Introduce Parameter Object</code>, kluczową zasadą jest unikanie zbyt dużej granicy. Nie próbuj przenosić całego stanu gry do jednego obiektu <code>game</code> od razu, ponieważ może to prowadzić do stworzenia boskiego obiektu (ang. God Object), który jest trudny do zrozumienia i utrzymania.</p>
+
+<p>Gdy zmiany kodu wyglądają ryzykownie, nie zaczynaj od przeprojektowania całego systemu. Zamiast tego użyj tego drzewa decyzyjnego:</p>
+
+<ol>
+    <li><strong>Czy masz silne testy jednostkowe?</strong> Jeśli nie, najpierw je zbuduj.</li>
+    <li><strong>Czy możesz wprowadzić tymczasowy adapter, który deleguje do starej funkcji?</strong> Jeśli nie, zakres jest zbyt duży — podziel go dalej.</li>
+    <li><strong>Czy możesz migrować testy jeden po drugim?</strong> Jeśli nie, zakres jest zbyt duży — podziel go dalej.</li>
+</ol>
+<p>Jeśli osiągniesz krok 3 z odpowiedziami &quot;tak&quot; to możesz bezpiecznie przystąpić do refaktoryzacji.</p>
+
+<h2>Odnośniki</h2>
+
+<ol>
+    <li>Martin Fowler - Refactoring: Improving the Design of Existing Code. <a href="https://martinfowler.com/books/refactoring.html">https://martinfowler.com/books/refactoring.html</a></li>
+    <li>Robert C. Martin - Clean Code: A Handbook of Agile Software Craftsmanship. <a href="https://www.goodreads.com/book/show/3735293-clean-code">https://www.goodreads.com/book/show/3735293-clean-code</a></li>
+    <li>Martin Fowler - Data Clump Code Smell. <a href="https://martinfowler.com/bliki/DataClump.html">https://martinfowler.com/bliki/DataClump.html</a></li>
+    <li>Zasady SOLID - Wikipedia PL. <a href="https://pl.wikipedia.org/wiki/SOLID">https://pl.wikipedia.org/wiki/SOLID</a></li>
+    <li>Refactoring Guru - Introduce Parameter Object. <a href="https://refactoring.guru/introduce-parameter-object/">https://refactoring.guru/introduce-parameter-object/</a></li>
+    <li>Refactoring Guru - Data Clumps. <a href="https://refactoring.guru/smells/data-clumps/">https://refactoring.guru/smells/data-clumps/</a></li>
+    <li>Refactoring Guru - Large Class. <a href="https://refactoring.guru/smells/large-class">https://refactoring.guru/smells/large-class</a></li>
+</ol>
+
+        </article>
+      </div>
+
+      <footer class="footer">
+        <div class="footer-inner">
+          <p></p>
+        </div>
+      </footer>
+    </div>
+  </main>
+
+  <script src="add-copy-buttons.js"></script>
+
+</body>
+
+</html>
