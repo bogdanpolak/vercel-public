@@ -450,13 +450,8 @@
 		return 'plain-text';
 	}
 
-	function detectLanguage(source, sectionElement, codeElement) {
-		const explicitLanguage = normalizeLanguage(
-			sectionElement?.dataset.language ||
-			codeElement?.dataset.language ||
-			Array.from(codeElement?.classList || []).find((className) => className.startsWith('language-'))?.slice(9),
-		);
-
+	function detectLanguage(source, datasetLanguage) {
+		const explicitLanguage = normalizeLanguage(datasetLanguage);
 		return explicitLanguage || inferLanguage(source);
 	}
 
@@ -479,7 +474,9 @@
 		const sectionOpenTagMatch = sectionMarkup.match(/^<div\b[^>]*>/);
 		const sectionOpenTag = sectionOpenTagMatch?.[0] || '<div class="code">';
 		const decoded = decodeHtmlEntities(codeMatch[1]);
-		const language = detectLanguage(decoded);
+		const datasetLanguageMatch = sectionOpenTag.match(/data-language="([^"]*)"/);
+		const datasetLanguage = datasetLanguageMatch?.[1] || null;
+		const language = detectLanguage(decoded, datasetLanguage);
 		const nextSectionOpenTag = sectionOpenTag.includes('data-language=')
 			? sectionOpenTag.replace(/data-language="[^"]*"/g, `data-language="${language}"`)
 			: sectionOpenTag.replace(/>$/, ` data-language="${language}">`);
