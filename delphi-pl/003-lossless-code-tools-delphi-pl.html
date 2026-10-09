@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dlaczego samo AST to za mało: Bezstratna transformacja kodu w Delphi</title>
+  <meta name="description" content="Dlaczego samo AST gubi komentarze i dyrektywy preprocesora w Object Pascalu i jak architektura hybrydowa pozwala budować bezstratne narzędzia kodu.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;300;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./article.css">
+</head>
+
+<body>
+  <main class="page">
+    <div class="shell">
+      <header class="hero">
+        <div class="hero-grid">
+          <div>
+            <div class="meta" aria-label="Article metadata">
+              <span>2026-10-09</span>
+              <span>Bogdan Polak</span>
+              <span>pl</span>
+            </div>
+            <h1>Dlaczego samo AST to za mało: Bezstratna transformacja kodu w Delphi</h1>
+            <p class="hero-intro">Dlaczego samo AST gubi komentarze i dyrektywy preprocesora w Object Pascalu i jak architektura hybrydowa pozwala budować bezstratne narzędzia kodu.</p>
+          </div>
+          <figure class="cover">
+            <img src="images/003-cover-image.jpg" alt="Rzemieślnik kodu bada szkielet AST na kliszy rentgenowskiej i nienaruszony strumień tokenów w warsztacie programistycznym." loading="lazy">
+            <figcaption>Rzemieślnik kodu bada szkielet AST na kliszy rentgenowskiej i nienaruszony strumień tokenów w warsztacie programistycznym.</figcaption>
+          </figure>
+        </div>
+      </header>
+
+      <div class="article-wrap">
+        <article class="content">
+          
+<h1>Dlaczego samo AST to za mało: Bezstratna transformacja kodu w Delphi</h1>
+
+<p>W projektach z wieloletnią historią niespójność formatowania bywa zmorą codziennej pracy. Część modułów używa wcięć na dwa znaki, część na cztery, instrukcje <code>begin..end</code> są porozrzucane w losowych stylach, a wielolinijkowe instrukcje warunkowe zaciemniają logikę biznesową. Naturalnym inżynierskim odruchem jest chęć automatyzacji: stworzenia narzędzia wiersza poleceń, które sformatuje kod przed zatwierdzeniem w repozytorium Git lub zintegruje się z potokiem CI/CD.</p>
+
+<p>W świecie Delphi pierwszym intuicyjnym wyborem do takiego zadania jest popularna biblioteka <a href="https://github.com/romanyankovsky/delphiast">DelphiAST</a>. Pomysł wydaje się prosty:</p>
+<ol>
+    <li>Wczytujemy plik źródłowy <code>.pas</code>.</li>
+    <li>Parsujemy go do drzewa składniowego <code>TSyntaxNode</code>.</li>
+    <li>Przechodzimy drzewo węzeł po węźle i generujemy kod na nowo ze spójnymi wcięciami (<em>AST-to-Source</em>).</li>
+</ol>
+<p>Jednak próba wdrożenia tego pomysłu w produkcyjnym projekcie Delphi niemal natychmiast kończy się katastrofą.</p>
+
+<hr>
+
+<h2>Pułapka naiwnego parsera</h2>
+
+<p>Wyobraź sobie, że uruchamiasz taki nowo napisany formater na krytycznym module produkcyjnym. Kod po przeformatowaniu wygląda estetycznie: wcięcia są równe, słowa kluczowe ułożone zgodnie z regułami sztuki. Następnie uruchamiasz kompilację na serwerze i build niespodziewanie pada.</p>
+
+<p>Gdy zaczynasz analizować różnice w pliku (<em>diff</em>), ogarnia Cię przerażenie:</p>
+<ul>
+    <li>Z kodu wyparowały wszystkie dyrektywy <code>{$IFDEF}</code> – kompilator wkleił na stałe tylko jedną gałąź, a kod dla innych platform zniknął.</li>
+    <li>Zniknęły wszystkie komentarze dokumentujące zawiłe algorytmy i decyzje biznesowe.</li>
+    <li>Deklaracja <code>packed record</code> stała się zwykłym <code>record</code>, co bez ostrzeżenia zniszczyło kompatybilność binarną struktur w pamięci.</li>
+    <li>Literały znakowe <code>#13</code> zostały zamienione na tekst <code>&#39;#13&#39;</code>, zmieniając semantykę operacji na ciągach znaków.</li>
+</ul>
+<figure>
+  <img src="./images/003-diagram-naive-trap.png" alt="Pułapka naiwnego generatora AST-to-Source i cztery krytyczne obszary utraty danych. Anty-wzorzec: cicha utrata danych.">
+  <figcaption>Pułapka naiwnego generatora AST-to-Source i cztery krytyczne obszary utraty danych. Anty-wzorzec: cicha utrata danych.</figcaption>
+</figure>
+
+<p>Dlaczego tak się stało? Czy to błąd w implementacji parsera?</p>
+
+<p>Nie. To fundamentalna cecha architektury kompilatorów. Aby to zrozumieć, warto posłużyć się analogią medyczną: <strong>metaforą zdjęcia rentgenowskiego</strong>.</p>
+
+<blockquote><strong>**Metafora Rentgena:</strong> ** Drzewo AST jest jak zdjęcie rentgenowskie człowieka. Rentgen doskonale ujawnia szkielet, układ kości i proporcje anatomiczne. Jednak próba „odtworzenia człowieka” wyłącznie na podstawie kliszy rentgenowskiej da bezduszny szkielet pozbawiony skóry, mięśni, koloru oczu i indywidualnych rysów twarzy. W kodzie źródłowym tymi „tkankami miękkimi” są komentarze, dyrektywy preprocesora, białe znaki i precyzyjne literały.</blockquote>
+
+<hr>
+
+<h2>Anatomia problemu: Dlaczego AST w Delphi jest stratne</h2>
+
+<p>W teorii kompilatorów istnieje kluczowe rozróżnienie na dwa rodzaje drzew składniowych:</p>
+<ol>
+    <li><strong>Concrete Syntax Tree (CST / Parse Tree):</strong> Drzewo pełne, które reprezentuje każdy pojedynczy znak, spację, nawias, komentarz i token źródłowy.</li>
+    <li><strong>Abstract Syntax Tree (AST):</strong> Drzewo semantyczne, które celowo odrzuca elementy nieistotne dla wykonania programu, skupiając się wyłącznie na strukturze logicznej.</li>
+</ol>
+<p>Biblioteka <code>DelphiAST</code> jest klasycznym drzewem semantycznym (tzw. <em>Lossy AST</em>). Została zaprojektowana do analizy statycznej, nawigacji po kodzie i inspekcji typów, a nie do bezstratnej regeneracji tekstu.</p>
+
+<p>Szczegółowa analiza kodu biblioteki (dostępna w dokumentacji projektu w <a href="https://github.com/bogdanpolak/rzemieslnik-kodu/blob/master/delphi-formatter/docs/01-analiza-delphiast.md">01-analiza-delphiast.md</a>) ujawnia cztery twarde powody, dla których bezpośredni <em>AST-Writer</em> nie ma prawa zadziałać w Object Pascalu:</p>
+
+<h3>1. Ewaluacja preprocesora połyka kod</h3>
+<p>Domyślnie lexer parsera działa z flagą <code>UseDefines = True</code>. Oznacza to, że preprocesor aktywnie ewaluuje warunki takie jak <code>{$IFDEF MSWINDOWS}</code> czy <code>{$IFDEF DEBUG}</code>. Kod znajdujący się w gałęzi nieaktywnej jest traktowany przez lexer jako śmieć i w ogóle nie trafia do parsera. Po sparsowaniu gałąź nieaktywna przestaje istnieć w pamięci. Z samego drzewa AST nie da się jej odtworzyć.</p>
+
+<h3>2. Komentarze żyją poza strukturą drzewa</h3>
+<p>Węzły komentarzy (<code>TCommentNode</code>) nie są częścią hierarchii <code>TSyntaxNode</code>. Parser zbiera je do pomocniczej listy buildera, a komentarze znajdujące się w nieaktywnych blokach <code>{$IFDEF}</code> są bezpowrotnie pomijane. Drzewo AST nie wie, do której instrukcji należy dany komentarz.</p>
+
+<h3>3. Dequotowanie literałów</h3>
+<p>Zarówno ciąg znaków <code>&#39;#13&#39;</code>, jak i surowy kod znaku <code>#13</code> są reprezentowane w węźle <code>ntLiteral</code> identycznym atrybutem tekstowym <code>Value = &#39;#13&#39;</code>. Parser gubi informację o tym, czy w kodzie oryginalnym był to literał znakowy czy string.</p>
+
+<h3>4. Brakujące modyfikatory i konstrukcje języka</h3>
+<p>Węzły <code>TSyntaxNode</code> nie przechowują wielu słów kluczowych specyficznych dla Delphi: modyfikatorów <code>packed</code>, <code>class sealed</code>, <code>class abstract</code>, konstrukcji anonimowych <code>reference to</code>, modyfikatorów widoczności pól <code>class var</code> ani treści bloków asemblera <code>asm..end</code>.</p>
+
+<p><strong>Wniosek:</strong> Próba napisania formatera w oparciu o czyste AST to ślepa uliczka.</p>
+
+<hr>
+
+<h2>Wzorzec Architektury Hybrydowej (Wariant C)</h2>
+
+<p>Skoro samo AST gubi kod, a sam lexer nie rozumie hierarchii i wcięć bloków <code>begin..end</code>, rozwiązaniem jest rozdzielenie odpowiedzialności pomiędzy dwa źródła prawdy. W projekcie <strong>[Rzemieślnik Kodu (rzemieslnik-kodu)](https://github.com/bogdanpolak/rzemieslnik-kodu)</strong> nazwaliśmy to podejściem <strong>Wariantem C – Architekturą Hybrydową</strong>.</p>
+
+<p>Zasada podziału ról jest bezwzględna:</p>
+<p>* <strong>Drzewo AST (<code>TPasSyntaxTreeBuilder</code>)</strong> odpowiada <strong>wyłącznie za układ i geometrię</strong>: wie, gdzie złamać wiersz, jak głęboko wciąć blok <code>try..finally</code> i jak sformatować gałęzie <code>if..else</code>. Nie ma prawa decydować o treści tekstu.</p>
+<p>* <strong>Lexer (<code>TmwPasLex</code> z <code>UseDefines = False</code>)</strong> odpowiada <strong>wyłącznie za treść</strong>: dostarcza pełny, bezstratny strumień tokenów, zawierający 100% słów kluczowych, komentarzy, białych znaków i dyrektyw kompilatora.</p>
+
+<figure>
+  <img src="./images/003-diagram-hybrid-architecture.png" alt="Architektura hybrydowa silnika dfmt: rozdział układu semantycznego od bezstratnego strumienia tokenów. Wzorzec Separation of Concerns">
+  <figcaption>Architektura hybrydowa silnika dfmt: rozdział układu semantycznego od bezstratnego strumienia tokenów. Wzorzec Separation of Concerns</figcaption>
+</figure>
+
+<p>Potok hybrydowy składa się z czterech precyzyjnie współdziałających komponentów:</p>
+
+<ol>
+    <li><strong><code>TPasSyntaxTreeBuilder</code> (Tor A):</strong> Buduje semantyczne drzewo AST, odnotowując pozycje wiersza i kolumny (<code>Line</code>, <code>Col</code>, <code>EndLine</code>, <code>EndCol</code>) dla każdej konstrukcji składniowej.</li>
+    <li><strong><code>TSourceTokens</code> (Tor B):</strong> Wykonuje drugi przebieg lexera <code>TmwPasLex</code> z wyłączoną ewaluacją preprocesora (<code>UseDefines := False</code>). Indeksuje tokeny mapą <code>(Line, Col) -&gt; TokenIndex</code>.</li>
+    <li><strong><code>TLayoutPlanner</code> (Planer układu):</strong> Przemierza węzły AST i nanosi na tokeny znaczniki układu (<code>TLayoutMark</code>): <code>BreakBefore</code> (złamanie linii), <code>Indent</code> (poziom wcięcia) oraz <code>BlankBefore</code> (wymuszona pusta linia).</li>
+    <li><strong><code>TTokenEmitter</code> (Emiter):</strong> Iteruje po tokenach w kolejności źródłowej, aplikując wyliczone wcięcia, usuwając stare białe znaki i normalizując odstępy wokół operatorów, ale <strong>nie zmieniając ani jednego tokenu użytkownika</strong>.</li>
+</ol>
+<hr>
+
+<h2>Implementacja potoku krok po kroku</h2>
+
+<p>Zobaczmy, jak elegancko wygląda główny kod orkiestrujący ten proces w silniku formatera (plik <code>docs/Example.FormatterArchitecture.pas</code> w repozytorium projektu):</p>
+
+<div class="code" data-language="pascal">
+<pre><code>unit Example.FormatterArchitecture;
+
+interface
+
+function Run(const ASourceCode: string): string;
+
+implementation
+
+uses
+  DelphiAST.Classes,
+  DelphiAST.Lexer,
+  DelphiAST.Formatter.Engine;
+
+function Run(const ASourceCode: string): string;
+var
+  Root: TSyntaxNode;
+  Tokens: TSourceTokens;
+  Planner: TLayoutPlanner;
+  Marks: TTokenMarks;
+  Emitter: TTokenEmitter;
+begin
+  // Krok 1: Zbuduj drzewo semantyczne do wyznaczenia układu
+  Root := ParseSource(ASourceCode);
+  try
+    // Krok 2: Pobierz kompletny, bezstratny strumień tokenów
+    Tokens := TSourceTokens.Create(ASourceCode);
+    try
+      // Krok 3: Zaplanuj wcięcia i łamania wierszy na podstawie AST
+      Planner := TLayoutPlanner.Create(Tokens);
+      try
+        Marks := Planner.Plan(Root);
+      finally
+        Planner.Free;
+      end;
+
+      // Krok 4: Wyemituj sformatowany kod, zachowując każdy token
+      Emitter := TTokenEmitter.Create(Tokens, Marks);
+      try
+        Result := Emitter.Emit;
+      finally
+        Emitter.Free;
+      end;
+    finally
+      Tokens.Free;
+    end;
+  finally
+    Root.Free;
+  end;
+end;
+
+end.</code></pre>
+</div>
+
+<p>Zwróć uwagę na rygorystyczne zarządzanie cyklem życia pamięci. W Object Pascalu węzły <code>TSyntaxNode</code> tworzą hierarchię własności – zwolnienie korzenia <code>Root.Free</code> automatycznie i bezpiecznie niszczy całe poddrzewo.</p>
+
+<h3>Prawdziwy test ognia: Dyrektywy preprocesora</h3>
+
+<p>Jak architektura hybrydowa radzi sobie z kodem naszpikowanym dyrektywami kompilatora? Spójrzmy na przykład z pliku <code>docs/demo2_compiler_dir.pas</code>:</p>
+
+<div class="code" data-language="pascal">
+<pre><code>unit demo2_compiler_dir;
+
+{$IFDEF FPC}{$MODE DELPHI}{$ENDIF}
+{$DEFINE SOMETHING}
+
+interface
+
+implementation
+
+procedure Test;
+begin
+  {$IFDEF SOMETHING}
+    Writeln(&#39;x1&#39;); Writeln(&#39;x2&#39;); 
+  {$ELSE}
+    Writeln(&#39;y1&#39;);      Writeln(&#39;y2&#39;); 
+  {$ENDIF}
+end;
+
+end.</code></pre>
+</div>
+
+<p>W czystym AST gałąź <code>{$ELSE}</code> zostałaby bezpowrotnie skasowana. W architekturze hybrydowej dzieje się coś zupełnie innego:</p>
+<ol>
+    <li><code>TSourceTokens</code> pobiera wszystkie tokeny obu gałęzi.</li>
+    <li>Gałąź aktywna (<code>{$IFDEF SOMETHING}</code>) posiada odpowiadające jej węzły AST, więc <code>TLayoutPlanner</code> przydziela jej pełne formatowanie strukturalne (instrukcje w osobnych liniach z wcięciem).</li>
+    <li>Gałąź nieaktywna (<code>{$ELSE}</code>) nie posiada węzłów AST, więc formater przełącza się w bezpieczny tryb zachowawczy (<em>fallback</em>): przepisuje tokeny na poziomie wcięcia dyrektywy otwierającej.</li>
+    <li><strong>Żaden znak kodu nie zostaje utracony.</strong></li>
+</ol>
+<hr>
+
+<h2>Inżynieria Zaufania: Dwa Niezmienniki Bezpieczeństwa</h2>
+
+<p>Dlaczego programiści tak bardzo boją się automatycznych narzędzi formatujących w projektach o dużym długu technicznym? Ponieważ boją się cichej regresji. Jedno przestawienie średnika, zniknięcie nawiasu czy usunięcie flagi preprocesora może unieruchomić produkcję. Tradycyjne testy jednostkowe z kilkoma asercjami <code>Assert.AreEqual</code> nie dają pewności, że silnik zachowa się poprawnie w tysiącach nietypowych kombinacji składniowych.</p>
+
+<p>W projekcie <em>Rzemieślnik Kodu</em> zastosowaliśmy podejście oparte na <strong>niezmiennikach matematycznych</strong> (<em>Invariant-Driven Design</em>). Zdefiniowaliśmy dwie żelazne reguły, które formater musi spełniać zawsze i bez wyjątków.</p>
+
+<figure>
+  <img src="./images/003-diagram-invariants.png" alt="Inżynieryjne zaufanie. Dwa twarde niezmienniki jakościowe gwarantujące zerową utratę kodu i stabilność w CI/CD.">
+  <figcaption>Inżynieryjne zaufanie. Dwa twarde niezmienniki jakościowe gwarantujące zerową utratę kodu i stabilność w CI/CD.</figcaption>
+</figure>
+
+<h3>Niezmiennik 1: Token Fingerprint Preservation (Nienaruszalność kodu)</h3>
+
+<p>Definiujemy funkcję skrótu leksykalnego <code>TokenFingerprint(S)</code> jako konkatenację wszystkich tokenów semantycznych (słów kluczowych, identyfikatorów, operatorów, komentarzy i dyrektyw) z całkowitym pominięciem białych znaków (spacji, tabulatorów i znaków nowej linii).</p>
+
+<p>Niezmiennik głosi:</p>
+<p>$$\text{TokenFingerprint}(\text{Input}) = \text{TokenFingerprint}(\text{Formatted})$$</p>
+
+<p>Jeżeli przed formatowaniem kod zawierał sto tokenów, to po formatowaniu musi zawierać dokładnie te same sto tokenów w identycznej kolejności. Formater ma prawo zmieniać wyłącznie białe znaki. Zgodność tego niezmiennika jest automatycznie weryfikowana dla każdego pliku.</p>
+
+<h3>Niezmiennik 2: Ścisła Idempotentność (Idempotence)</h3>
+
+<p>Co dzieje się, gdy uruchomisz formater na pliku, który już został sformatowany? Jeśli narzędzie jest źle zaprojektowane, przy każdym uruchomieniu przesunie wcięcie o dwie spacje dalej albo zmieni układ komentarza. W systemie kontroli wersji Git wywoła to koszmar – commity pełne nieistotnych, „pływających” różnic (<em>noisy diffs</em>).</p>
+
+<p>Formater rzemieślniczy musi być ściśle idempotentny:</p>
+<p>$$\text{Format}(\text{Format}(S)) = \text{Format}(S)$$</p>
+
+<p>Wynik drugiego przebiegu musi być identyczny z wynikiem pierwszego co do pojedynczego bajtu. W repozytorium zaimplementowaliśmy dedykowany program diagnostyczny <code>docs/demo3_idempotent.dpr</code>, który nie tylko sprawdza ten warunek, ale w razie rozbieżności precyzyjnie wskazuje pierwszą różnicę:</p>
+
+<div class="code" data-language="pascal">
+<pre><code>function Test_Idempotent(AInput: string): TResult;
+var
+  Formatter: TDelphiCodeFormatter;
+begin
+  Result.Passed := False;
+  Formatter := TDelphiCodeFormatter.Create;
+  try
+    Result.Actual := NormalizeLineEndings(Formatter.FormatSource(AInput));
+    Result.Again  := NormalizeLineEndings(Formatter.FormatSource(Result.Actual));
+    
+    if Result.Actual = Result.Again then
+    begin
+      Result.Passed := True;
+      Result.Report := &#39;Formatowanie JEST idempotentne: Format(Format(S)) = Format(S)&#39;;
+    end
+    else
+    begin
+      Result.Passed := False;
+      Result.Report := &#39;Formatowanie NIE JEST idempotentne! (&#39; +
+        FirstDifference(Result.Again, Result.Actual) + &#39;)&#39;;
+    end;
+  finally
+    Formatter.Free;
+  end;
+end;</code></pre>
+</div>
+
+<p>Stabilność silnika chroni dodatkowo zestaw 21 testów typu <strong>Golden Master</strong> w katalogu <code>delphi-formatter/tests/golden/</code>, weryfikujących transformacje od prostych modułów po nowoczesną składnię zmiennych inline (<code>var X := 10;</code>).</p>
+
+<hr>
+
+<h2>Podsumowanie i Heurystyki Rzemieślnika</h2>
+
+<p>Praktyka inżynierska uczy, że narzędzia deweloperskie powinny ułatwiać życie programistom, a nie przysparzać im obaw. Próba pójścia na skróty i zrzucania kodu z czystego drzewa AST Delphi to pułapka, w którą wpadło wielu autorów narzędzi.</p>
+
+<p>Oto zestaw heurystyk decyzyjnych, które warto zapamiętać, projektując narzędzia operujące na kodzie Object Pascala:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Rodzaj zadania</th>
+      <th>Właściwa architektura</th>
+      <th>Dlaczego?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Analiza statyczna (Tylko do odczytu)</strong></td>
+      <td>Czyste AST (<code>TPasSyntaxTreeBuilder</code>)</td>
+      <td>Wystarczy model semantyczny; utrata komentarzy i białych znaków nie ma znaczenia.</td>
+    </tr>
+    <tr>
+      <td><strong>Generowanie nowego kodu od zera</strong></td>
+      <td>Generator szablonowy / CodeDOM</td>
+      <td>Tworzymy nowy plik, więc nie musimy chronić istniejących dyrektyw ani komentarzy.</td>
+    </tr>
+    <tr>
+      <td><strong>Formatowanie, linter z auto-fix, migracja składni</strong></td>
+      <td><strong>Architektura Hybrydowa (AST + Lexer)</strong></td>
+      <td><strong>Jedyny bezpieczny wybór.</strong> Wymaga 100% zachowania intencji autora i zerowej utraty tokenów.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Rzemiosło programistyczne w Delphi polega na pragmatyzmie: znajomości ograniczeń używanych bibliotek i budowaniu wokół nich mechanizmów gwarantujących bezpieczeństwo. Architektura hybrydowa pozwala połączyć to, co najlepsze w teorii kompilatorów z twardą rzeczywistością kodu produkcyjnego.</p>
+
+<hr>
+
+<h2>Źródła i Materiały</h2>
+
+<p>* <strong>Kod źródłowy projektu:</strong> <a href="https://github.com/bogdanpolak/rzemieslnik-kodu">github.com/bogdanpolak/rzemieslnik-kodu</a> – kompletna implementacja silnika <code>dfmt</code>, testów golden master oraz wizualizatora AST w VCL.</p>
+<p>* <strong>Biblioteka DelphiAST:</strong> <a href="https://github.com/romanyankovsky/delphiast">github.com/romanyankovsky/delphiast</a> – parser AST dla Object Pascala (autor: Roman Yankovsky).</p>
+<p><em> Robert C. Martin – </em>Clean Code: A Handbook of Agile Software Craftsmanship<em>, Prentice Hall 2008 (rozdział 5: </em>Formatting*).</p>
+<p><em> Martin Fowler – </em>Refactoring: Improving the Design of Existing Code*, Addison-Wesley 2018 (bezpieczne przekształcenia kodu zachowujące zachowanie).</p>
+<p><em> Alfred V. Aho, Monica S. Lam, Ravi Sethi, Jeffrey D. Ullman – </em>Compilers: Principles, Techniques, and Tools* (rozdziały poświęcone różnicom między analizą leksykalną, gramatyką a drzewami semantycznymi).</p>
+<p><em> Michael Feathers – </em>Working Effectively with Legacy Code*, Prentice Hall 2004 (techniki testów snapshotowych i golden master).</p>
+
+
+        </article>
+      </div>
+
+      <footer class="footer">
+        <div class="footer-inner">
+          <p></p>
+        </div>
+      </footer>
+    </div>
+  </main>
+
+  <script src="add-copy-buttons.js"></script>
+
+</body>
+
+</html>

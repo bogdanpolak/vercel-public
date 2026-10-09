@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Why AST Alone Fails: Building Lossless Code Tools in Delphi</title>
+  <meta name="description" content="Why pure AST drops comments and preprocessor directives in Object Pascal, and how a hybrid architecture enables lossless code tooling.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;300;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./article.css">
+</head>
+
+<body>
+  <main class="page">
+    <div class="shell">
+      <header class="hero">
+        <div class="hero-grid">
+          <div>
+            <div class="meta" aria-label="Article metadata">
+              <span>2026-10-09</span>
+              <span>Bogdan Polak</span>
+              <span>en</span>
+            </div>
+            <h1>Why AST Alone Fails: Building Lossless Code Tools in Delphi</h1>
+            <p class="hero-intro">Why pure AST drops comments and preprocessor directives in Object Pascal, and how a hybrid architecture enables lossless code tooling.</p>
+          </div>
+          <figure class="cover">
+            <img src="images/003-cover-image.jpg" alt="A code craftsman inspects an AST skeleton on an X-ray film alongside an intact token stream in a software workshop." loading="lazy">
+            <figcaption>A code craftsman inspects an AST skeleton on an X-ray film alongside an intact token stream in a software workshop.</figcaption>
+          </figure>
+        </div>
+      </header>
+
+      <div class="article-wrap">
+        <article class="content">
+          
+<h1>Why AST Alone Fails: Building Lossless Code Tools in Delphi</h1>
+
+<p>In codebases with a long history, inconsistent formatting is a persistent drag on developer velocity. Some units use two-space indentation while others use four, <code>begin..end</code> blocks are scattered across random styles, and multiline conditional statements obscure business intent. The natural engineering impulse is automation: build a command-line tool to format code cleanly before commits or integrate it directly into a CI/CD pipeline.</p>
+
+<p>In the Delphi world, the first intuitive choice for this task is the popular <a href="https://github.com/romanyankovsky/delphiast">DelphiAST</a> library. The recipe appears straightforward:</p>
+<ol>
+    <li>Load a <code>.pas</code> source file.</li>
+    <li>Parse it into a <code>TSyntaxNode</code> syntax tree.</li>
+    <li>Walk the tree and regenerate the source code with consistent indentation (<em>AST-to-Source</em>).</li>
+</ol>
+<p>However, attempting to deploy this approach in a production Delphi project leads almost immediately to catastrophe.</p>
+
+<hr>
+
+<h2>The Naive Formatter Trap</h2>
+
+<p>Imagine running such a newly minted formatter on a critical production unit. The resulting formatted code looks polished: indentation is aligned, and keywords adhere strictly to style guidelines. Then, the CI build runs, and the compiler fails unexpectedly.</p>
+
+<p>When you inspect the Git diff, the problem becomes terrifyingly clear:</p>
+<ul>
+    <li>All <code>{$IFDEF}</code> compiler directives have evaporated—the parser baked in only the active branch, and platform-specific code for other targets has vanished.</li>
+    <li>Every comment documenting complex algorithms and business rules is gone.</li>
+    <li>A <code>packed record</code> declaration was re-emitted as a plain <code>record</code>, silently breaking binary struct alignment in memory.</li>
+    <li>Character literals like <code>#13</code> were converted to string literals <code>&#39;#13&#39;</code>, breaking byte and string semantics.</li>
+</ul>
+<figure>
+  <img src="./images/003-diagram-naive-trap.png" alt="The naive AST-to-Source generator trap and four critical areas of data loss. Anti-pattern: silent code corruption.">
+  <figcaption>The naive AST-to-Source generator trap and four critical areas of data loss. Anti-pattern: silent code corruption.</figcaption>
+</figure>
+
+<p>Why did this happen? Is it a bug in the parser implementation?</p>
+
+<p>No. It is a fundamental design characteristic of compiler frontends. To understand why, a medical analogy is helpful: <strong>the X-ray metaphor</strong>.</p>
+
+<blockquote><strong>The X-Ray Metaphor:</strong> An AST tree is like an X-ray photograph of a human being. An X-ray reveals the skeleton, bone structure, and anatomical proportions with high fidelity. But attempting to &quot;reconstruct a living human&quot; from an X-ray alone yields a lifeless skeleton stripped of skin, muscles, eye color, and facial expression. In source code, those vital &quot;soft tissues&quot; are comments, preprocessor directives, whitespace, and precise literal representations.</blockquote>
+
+<hr>
+
+<h2>Problem Anatomy: Why Delphi AST is Lossy</h2>
+
+<p>In compiler theory, there is a fundamental distinction between two types of syntax trees:</p>
+<ol>
+    <li><strong>Concrete Syntax Tree (CST / Parse Tree):</strong> A lossless, high-fidelity tree representing every single character, space, bracket, comment, and lexical token in the source file.</li>
+    <li><strong>Abstract Syntax Tree (AST):</strong> A semantic tree that intentionally discards details irrelevant to runtime execution, focusing strictly on high-level program logic.</li>
+</ol>
+<p>The <code>DelphiAST</code> library is a classic semantic tree (<em>Lossy AST</em>). It was engineered for static analysis, code navigation, and type inspection—not for lossless round-trip code regeneration.</p>
+
+<p>An in-depth analysis of the library codebase (documented in the project repository in <a href="https://github.com/bogdanpolak/rzemieslnik-kodu/blob/master/delphi-formatter/docs/01-analiza-delphiast.md">01-analiza-delphiast.md</a>) reveals four concrete reasons why a direct <em>AST-Writer</em> cannot safely format Object Pascal:</p>
+
+<h3>1. Preprocessor Evaluation Drops Inactive Branches</h3>
+<p>By default, the lexer operates with <code>UseDefines = True</code>. The preprocessor evaluates conditionals such as <code>{$IFDEF MSWINDOWS}</code> or <code>{$IFDEF DEBUG}</code>. Code in inactive branches is discarded as dead text and never reaches the parser. Once parsed, the inactive code no longer exists in memory. It cannot be reconstructed from the AST.</p>
+
+<h3>2. Comments Live Outside the Syntax Tree</h3>
+<p>Comment nodes (<code>TCommentNode</code>) are not part of the <code>TSyntaxNode</code> hierarchy. The parser collects them into an auxiliary list on the builder, and comments located inside inactive preprocessor blocks are skipped entirely. The AST tree does not retain knowledge of which statement or expression a comment belongs to.</p>
+
+<h3>3. Dequoted Literals</h3>
+<p>Both the string literal <code>&#39;#13&#39;</code> and the raw character code <code>#13</code> are represented in an <code>ntLiteral</code> node with identical string attribute data: <code>Value = &#39;#13&#39;</code>. The parser drops the lexical distinction between character codes and strings.</p>
+
+<h3>4. Missing Keywords and Language Modifiers</h3>
+<p><code>TSyntaxNode</code> instances do not store many Delphi-specific language modifiers: <code>packed</code>, <code>class sealed</code>, <code>class abstract</code>, anonymous method <code>reference to</code> constructs, <code>class var</code> member visibility specifiers, and the contents of inline assembly blocks (<code>asm..end</code>).</p>
+
+<p><strong>Conclusion:</strong> Building an automated formatter on top of pure AST alone is an architectural dead end.</p>
+
+<hr>
+
+<h2>The Hybrid Architecture Pattern (Variant C)</h2>
+
+<p>Since AST alone loses code, and a standalone lexer lacks awareness of block hierarchies and <code>begin..end</code> nesting, the solution is strict decoupling across two sources of truth. In the <strong>[Code Craftsman (rzemieslnik-kodu)](https://github.com/bogdanpolak/rzemieslnik-kodu)</strong> project, we formulated this solution as <strong>Variant C – The Hybrid Architecture</strong>.</p>
+
+<p>The separation of concerns is absolute:</p>
+<p>* <strong>The AST Tree (<code>TPasSyntaxTreeBuilder</code>)</strong> is responsible <strong>solely for layout and geometry</strong>: it decides where lines break, how deeply a <code>try..finally</code> block is indented, and how <code>if..else</code> ladders are aligned. It has no authority over text content.</p>
+<p>* <strong>The Lexer (<code>TmwPasLex</code> with <code>UseDefines = False</code>)</strong> is responsible <strong>solely for text content</strong>: it provides a complete, lossless stream of lexical tokens containing 100% of keywords, comments, whitespace, and preprocessor directives.</p>
+
+<figure>
+  <img src="./images/003-diagram-hybrid-architecture.png" alt="Hybrid architecture of the dfmt engine: decoupling semantic layout from a lossless token stream. Separation of Concerns pattern.">
+  <figcaption>Hybrid architecture of the dfmt engine: decoupling semantic layout from a lossless token stream. Separation of Concerns pattern.</figcaption>
+</figure>
+
+<p>The hybrid pipeline consists of four cooperating components:</p>
+
+<ol>
+    <li><strong><code>TPasSyntaxTreeBuilder</code> (Branch A):</strong> Parses the semantic AST, capturing opening and closing line and column positions (<code>Line</code>, <code>Col</code>, <code>EndLine</code>, <code>EndCol</code>) for every syntax construct.</li>
+    <li><strong><code>TSourceTokens</code> (Branch B):</strong> Executes a secondary lexer pass via <code>TmwPasLex</code> with preprocessor evaluation disabled (<code>UseDefines := False</code>). It indexes all tokens into a lookup map: <code>(Line, Col) -&gt; TokenIndex</code>.</li>
+    <li><strong><code>TLayoutPlanner</code> (Layout Planner):</strong> Traverses AST nodes and attaches non-destructive layout annotations (<code>TLayoutMark</code>) to tokens: <code>BreakBefore</code> (newline), <code>Indent</code> (indentation depth), and <code>BlankBefore</code> (mandatory blank line).</li>
+    <li><strong><code>TTokenEmitter</code> (Emitter):</strong> Iterates through tokens in original source order, applying calculated indentation, stripping original whitespace, and normalizing operator spacing—<strong>without altering a single input token</strong>.</li>
+</ol>
+<hr>
+
+<h2>Pipeline Implementation Step by Step</h2>
+
+<p>Here is the clean orchestration pipeline from <code>docs/Example.FormatterArchitecture.pas</code> in the repository:</p>
+
+<div class="code" data-language="pascal">
+<pre><code>unit Example.FormatterArchitecture;
+
+interface
+
+function Run(const ASourceCode: string): string;
+
+implementation
+
+uses
+  DelphiAST.Classes,
+  DelphiAST.Lexer,
+  DelphiAST.Formatter.Engine;
+
+function Run(const ASourceCode: string): string;
+var
+  Root: TSyntaxNode;
+  Tokens: TSourceTokens;
+  Planner: TLayoutPlanner;
+  Marks: TTokenMarks;
+  Emitter: TTokenEmitter;
+begin
+  // Step 1: Parse the semantic AST to compute structure and layout
+  Root := ParseSource(ASourceCode);
+  try
+    // Step 2: Extract the complete, lossless lexical token stream
+    Tokens := TSourceTokens.Create(ASourceCode);
+    try
+      // Step 3: Compute line breaks and indentation marks from the AST
+      Planner := TLayoutPlanner.Create(Tokens);
+      try
+        Marks := Planner.Plan(Root);
+      finally
+        Planner.Free;
+      end;
+
+      // Step 4: Emit formatted code, preserving every original token
+      Emitter := TTokenEmitter.Create(Tokens, Marks);
+      try
+        Result := Emitter.Emit;
+      finally
+        Emitter.Free;
+      end;
+    finally
+      Tokens.Free;
+    end;
+  finally
+    Root.Free;
+  end;
+end;
+
+end.</code></pre>
+</div>
+
+<p>Notice the disciplined memory ownership model. In Object Pascal, <code>TSyntaxNode</code> instances form an ownership tree—freeing the root via <code>Root.Free</code> safely and recursively disposes of all child nodes.</p>
+
+<h3>The Acid Test: Preprocessor Directives</h3>
+
+<p>How does the hybrid architecture handle code heavily populated with compiler directives? Consider this example from <code>docs/demo2_compiler_dir.pas</code>:</p>
+
+<div class="code" data-language="pascal">
+<pre><code>unit demo2_compiler_dir;
+
+{$IFDEF FPC}{$MODE DELPHI}{$ENDIF}
+{$DEFINE SOMETHING}
+
+interface
+
+implementation
+
+procedure Test;
+begin
+  {$IFDEF SOMETHING}
+    Writeln(&#39;x1&#39;); Writeln(&#39;x2&#39;); 
+  {$ELSE}
+    Writeln(&#39;y1&#39;);      Writeln(&#39;y2&#39;); 
+  {$ENDIF}
+end;
+
+end.</code></pre>
+</div>
+
+<p>In a pure AST approach, the <code>{$ELSE}</code> branch is permanently deleted. In the hybrid architecture:</p>
+<ol>
+    <li><code>TSourceTokens</code> captures every token from both branches.</li>
+    <li>The active branch (<code>{$IFDEF SOMETHING}</code>) corresponds to AST nodes, so <code>TLayoutPlanner</code> grants it full structural formatting (one statement per line, properly indented).</li>
+    <li>The inactive branch (<code>{$ELSE}</code>) has no matching AST nodes, so the emitter engages a safe fallback: tokens are re-emitted with the relative indentation of the opening directive.</li>
+    <li><strong>Not a single character of code is lost.</strong></li>
+</ol>
+<hr>
+
+<h2>Engineering Trust: Two Safety Invariants</h2>
+
+<p>Why are software engineers hesitant to adopt automated formatting tools in legacy codebases? Because they fear silent regressions. A displaced semicolon, a dropped parenthesis, or a missing compiler flag can bring production down. Traditional unit tests with a handful of <code>Assert.AreEqual</code> checks cannot guarantee safety across thousands of edge cases.</p>
+
+<p>In the <em>Code Craftsman</em> project, we adopted <strong>Invariant-Driven Design</strong>. We defined two mathematical invariants that the formatter must satisfy unconditionally.</p>
+
+<figure>
+  <img src="./images/003-diagram-invariants.png" alt="Engineering trust. Two hard quality invariants guaranteeing zero code loss and CI/CD stability.">
+  <figcaption>Engineering trust. Two hard quality invariants guaranteeing zero code loss and CI/CD stability.</figcaption>
+</figure>
+
+<h3>Invariant 1: Token Fingerprint Preservation</h3>
+
+<p>We define the lexical hash function <code>TokenFingerprint(S)</code> as the concatenation of all significant semantic tokens (keywords, identifiers, operators, comments, and compiler directives), filtering out whitespace (<code>#32</code>, <code>#9</code>, <code>#10</code>, <code>#13</code>).</p>
+
+<p>The invariant states:</p>
+<p>$$\text{TokenFingerprint}(\text{Input}) = \text{TokenFingerprint}(\text{Formatted})$$</p>
+
+<p>If the input code contains one hundred tokens, the formatted output must contain exactly those same one hundred tokens in identical sequence. The formatter is allowed to alter whitespace and layout—nothing else. This invariant is verified automatically on every run.</p>
+
+<h3>Invariant 2: Strict Idempotence</h3>
+
+<p>What happens when you run a formatter on code that has already been formatted? An unstable tool might push indentation two spaces further with each run or shift comments around. In Git, that causes noisy, shifting diffs that pollute code reviews.</p>
+
+<p>A professional formatter must be strictly idempotent:</p>
+<p>$$\text{Format}(\text{Format}(S)) = \text{Format}(S)$$</p>
+
+<p>The output of the second pass must match the output of the first pass down to the byte. In the repository, we built a diagnostic runner (<code>docs/demo3_idempotent.dpr</code>) that verifies this property and pinpoint-locates the exact character position of any deviation:</p>
+
+<div class="code" data-language="pascal">
+<pre><code>function Test_Idempotent(AInput: string): TResult;
+var
+  Formatter: TDelphiCodeFormatter;
+begin
+  Result.Passed := False;
+  Formatter := TDelphiCodeFormatter.Create;
+  try
+    Result.Actual := NormalizeLineEndings(Formatter.FormatSource(AInput));
+    Result.Again  := NormalizeLineEndings(Formatter.FormatSource(Result.Actual));
+    
+    if Result.Actual = Result.Again then
+    begin
+      Result.Passed := True;
+      Result.Report := &#39;Formatting IS idempotent: Format(Format(S)) = Format(S)&#39;;
+    end
+    else
+    begin
+      Result.Passed := False;
+      Result.Report := &#39;Formatting IS NOT idempotent! (&#39; +
+        FirstDifference(Result.Again, Result.Actual) + &#39;)&#39;;
+    end;
+  finally
+    Formatter.Free;
+  end;
+end;</code></pre>
+</div>
+
+<p>Engine stability is further reinforced by a suite of 21 <strong>Golden Master</strong> snapshot tests in <code>delphi-formatter/tests/golden/</code>, covering constructs from basic units and generics to modern Delphi 10.3+ inline variables (<code>var X := 10;</code>).</p>
+
+<hr>
+
+<h2>Summary and Craftsmanship Heuristics</h2>
+
+<p>Software craftsmanship teaches us that developer tooling should build confidence, not create anxiety. Taking shortcuts by regenerating code directly from pure AST is a trap that has caught many tool authors.</p>
+
+<p>Here is a quick decision heuristic when designing Object Pascal code tools:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Task Type</th>
+      <th>Recommended Architecture</th>
+      <th>Rationale</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Static Analysis (Read-Only)</strong></td>
+      <td>Pure AST (<code>TPasSyntaxTreeBuilder</code>)</td>
+      <td>Semantic model is sufficient; lost comments and whitespace are irrelevant.</td>
+    </tr>
+    <tr>
+      <td><strong>Code Generation (From Scratch)</strong></td>
+      <td>Template Generator / CodeDOM</td>
+      <td>Emitting fresh files means there are no existing directives or comments to preserve.</td>
+    </tr>
+    <tr>
+      <td><strong>Formatting, Linting with Auto-Fix, Syntax Migration</strong></td>
+      <td><strong>Hybrid Architecture (AST + Lexer)</strong></td>
+      <td><strong>The only safe option.</strong> Requires 100% preservation of developer intent and zero token loss.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Craftsmanship in Delphi is about pragmatic engineering: understanding the limitations of existing libraries and wrapping them in robust architectures that deliver mathematical safety. The hybrid approach unites the power of compiler theory with the realities of production code.</p>
+
+<hr>
+
+<h2>References and Further Reading</h2>
+
+<p>* <strong>Project Repository:</strong> <a href="https://github.com/bogdanpolak/rzemieslnik-kodu">github.com/bogdanpolak/rzemieslnik-kodu</a> – complete implementation of the <code>dfmt</code> CLI engine, golden test suites, and VCL AST visualizer.</p>
+<p>* <strong>DelphiAST Library:</strong> <a href="https://github.com/romanyankovsky/delphiast">github.com/romanyankovsky/delphiast</a> – AST parser for Object Pascal by Roman Yankovsky.</p>
+<p><em> Robert C. Martin – </em>Clean Code: A Handbook of Agile Software Craftsmanship<em>, Prentice Hall 2008 (Chapter 5: </em>Formatting*).</p>
+<p><em> Martin Fowler – </em>Refactoring: Improving the Design of Existing Code*, Addison-Wesley 2018 (behavior-preserving transformations).</p>
+<p><em> Alfred V. Aho, Monica S. Lam, Ravi Sethi, Jeffrey D. Ullman – </em>Compilers: Principles, Techniques, and Tools* (lexical analysis vs. concrete syntax vs. semantic trees).</p>
+<p><em> Michael Feathers – </em>Working Effectively with Legacy Code*, Prentice Hall 2004 (characterization and golden master testing techniques).</p>
+
+
+        </article>
+      </div>
+
+      <footer class="footer">
+        <div class="footer-inner">
+          <p></p>
+        </div>
+      </footer>
+    </div>
+  </main>
+
+  <script src="add-copy-buttons.js"></script>
+
+</body>
+
+</html>

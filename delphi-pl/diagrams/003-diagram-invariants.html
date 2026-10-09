@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Engineering Trust: Safety Invariants</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #ffffff;
+      color: #0f172a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 30px 20px;
+    }
+    .diagram-container {
+      width: 1020px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 18px;
+      padding: 36px 40px;
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 26px;
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 16px;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.3px;
+    }
+    .badge-trust {
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      color: #047857;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 5px 12px;
+      border-radius: 9999px;
+    }
+    .cards-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 22px;
+    }
+    .invariant-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 22px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+    }
+    .card-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 6px;
+    }
+    .card-label.blue { color: #0284c7; }
+    .card-label.amber { color: #d97706; }
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 14px;
+    }
+    .formula-box {
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .formula-box.blue {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+    }
+    .formula-box.amber {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+    }
+    .formula-code {
+      font-family: Consolas, monospace;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .formula-box.blue .formula-code { color: #0369a1; }
+    .formula-box.amber .formula-code { color: #b45309; }
+
+    .checklist {
+      list-style: none;
+      font-size: 12px;
+      color: #475569;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .checklist li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .check-icon {
+      color: #10b981;
+      font-weight: 900;
+      font-size: 13px;
+    }
+
+    .footer-bar {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .badge-suite {
+      background: #0284c7;
+      color: white;
+      font-weight: 700;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="diagram-container">
+    <div class="header">
+      <h1>Engineering Trust: Two Core Safety Invariants</h1>
+      <span class="badge-trust">Property-Based Verification</span>
+    </div>
+
+    <div class="cards-grid">
+      <!-- Invariant 1 -->
+      <div class="invariant-card">
+        <div>
+          <div class="card-label blue">Invariant 1 • Semantic Integrity</div>
+          <div class="card-title">Token Fingerprint Preservation</div>
+          <div class="formula-box blue">
+            <div class="formula-code">Fingerprint(Input) == Fingerprint(Output)</div>
+          </div>
+        </div>
+        <ul class="checklist">
+          <li><span class="check-icon">✓</span> Non-whitespace tokens match 1:1</li>
+          <li><span class="check-icon">✓</span> Preserves all comments &amp; {$IFDEF} branches</li>
+          <li><span class="check-icon">✓</span> Zero semantic or AST changes</li>
+        </ul>
+      </div>
+
+      <!-- Invariant 2 -->
+      <div class="invariant-card">
+        <div>
+          <div class="card-label amber">Invariant 2 • VCS &amp; CI/CD Stability</div>
+          <div class="card-title">Strict Idempotence</div>
+          <div class="formula-box amber">
+            <div class="formula-code">Format(Format(Source)) == Format(Source)</div>
+          </div>
+        </div>
+        <ul class="checklist">
+          <li><span class="check-icon">✓</span> Pass 1 equals Pass 2 byte-for-byte</li>
+          <li><span class="check-icon">✓</span> Eliminates noisy / shifting Git diffs</li>
+          <li><span class="check-icon">✓</span> Fully deterministic formatting</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bar">
+      <span>Verified across Delphi 10.3+ inline vars, generics, records, and complex unit structures</span>
+      <span class="badge-suite">21/21 Golden Tests PASS</span>
+    </div>
+  </div>
+
+</body>
+</html>

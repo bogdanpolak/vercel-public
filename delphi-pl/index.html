@@ -514,6 +514,26 @@
         href: './002-refactoring-parameter-object-pl.html',
         coverImage: './images/002-cover-image.png'
       },
+      {
+        postId: 3,
+        language: 'en',
+        title: 'Why AST Alone Fails: Building Lossless Code Tools in Delphi',
+        author: 'Bogdan Polak',
+        intro: 'When a Delphi developer sets out to build custom tooling—a formatter, linter, or code analyzer—intuition suggests: parse source code into an AST and serialize it back. In Object Pascal, this naive approach leads to silent disaster. Semantic AST trees drop comments, preprocessor directives, and critical type modifiers. In this article, we explore the hybrid architecture behind the Code Craftsman (Rzemieślnik Kodu) project, combining AST semantics with a lossless token stream to guarantee 100% source code safety.',
+        date: '2026-10-09',
+        href: './003-lossless-code-tools-delphi-en.html',
+        coverImage: './images/003-cover-image.jpg'
+      },
+      {
+        postId: 3,
+        language: 'pl',
+        title: 'Dlaczego samo AST to za mało: Bezstratna transformacja kodu w Delphi',
+        author: 'Bogdan Polak',
+        intro: 'Gdy programista Delphi decyduje się na budowę własnego narzędzia – formatera, lintera czy analizatora kodu – intuicja podpowiada: sparsujmy kod do drzewa AST, a potem zrzućmy je z powrotem. W Object Pascalu to prosta droga do katastrofy. Drzewo AST gubi komentarze, dyrektywy preprocesora {$IFDEF} i modyfikatory typów. W tym artykule pokazujemy architekturę hybrydową projektu Rzemieślnik Kodu, która łączy semantykę AST z bezstratnym strumieniem tokenów, gwarantując 100% bezpieczeństwa kodu źródłowego.',
+        date: '2026-10-09',
+        href: './003-lossless-code-tools-delphi-pl.html',
+        coverImage: './images/003-cover-image.jpg'
+      },
     ];
     // --------------------------------------------------
 
