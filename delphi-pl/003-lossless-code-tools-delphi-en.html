@@ -128,58 +128,58 @@
 
 <p>Here is the clean orchestration pipeline from <code>docs/Example.FormatterArchitecture.pas</code> in the repository:</p>
 
-<div class="code" data-language="pascal">
-<pre><code>unit Example.FormatterArchitecture;
+<div class="code" data-language="object-pascal">
+<pre><code><span class="keyword">unit</span> Example<span class="operator">.</span><span class="property">FormatterArchitecture</span><span class="operator">;</span>
 
-interface
+<span class="keyword">interface</span>
 
-function Run(const ASourceCode: string): string;
+<span class="keyword">function</span> <span class="routine">Run</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">ASourceCode</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">)</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">;</span>
 
-implementation
+<span class="keyword">implementation</span>
 
-uses
-  DelphiAST.Classes,
-  DelphiAST.Lexer,
-  DelphiAST.Formatter.Engine;
+<span class="keyword">uses</span>
+  DelphiAST<span class="operator">.</span><span class="property">Classes</span><span class="operator">,</span>
+  DelphiAST<span class="operator">.</span><span class="property">Lexer</span><span class="operator">,</span>
+  DelphiAST<span class="operator">.</span><span class="property">Formatter</span><span class="operator">.</span><span class="property">Engine</span><span class="operator">;</span>
 
-function Run(const ASourceCode: string): string;
-var
-  Root: TSyntaxNode;
-  Tokens: TSourceTokens;
-  Planner: TLayoutPlanner;
-  Marks: TTokenMarks;
-  Emitter: TTokenEmitter;
-begin
-  // Step 1: Parse the semantic AST to compute structure and layout
-  Root := ParseSource(ASourceCode);
-  try
-    // Step 2: Extract the complete, lossless lexical token stream
-    Tokens := TSourceTokens.Create(ASourceCode);
-    try
-      // Step 3: Compute line breaks and indentation marks from the AST
-      Planner := TLayoutPlanner.Create(Tokens);
-      try
-        Marks := Planner.Plan(Root);
-      finally
-        Planner.Free;
-      end;
+<span class="keyword">function</span> <span class="routine">Run</span><span class="operator">(</span><span class="keyword">const</span> <span class="identifier">ASourceCode</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">)</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">;</span>
+<span class="keyword">var</span>
+  <span class="identifier">Root</span><span class="operator">:</span> <span class="class-name">TSyntaxNode</span><span class="operator">;</span>
+  <span class="identifier">Tokens</span><span class="operator">:</span> <span class="class-name">TSourceTokens</span><span class="operator">;</span>
+  <span class="identifier">Planner</span><span class="operator">:</span> <span class="class-name">TLayoutPlanner</span><span class="operator">;</span>
+  <span class="identifier">Marks</span><span class="operator">:</span> <span class="class-name">TTokenMarks</span><span class="operator">;</span>
+  <span class="identifier">Emitter</span><span class="operator">:</span> <span class="class-name">TTokenEmitter</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  <span class="comment">// Step 1: Parse the semantic AST to compute structure and layout</span>
+  <span class="identifier">Root</span> <span class="operator">:=</span> <span class="routine">ParseSource</span><span class="operator">(</span>ASourceCode<span class="operator">)</span><span class="operator">;</span>
+  <span class="keyword">try</span>
+    <span class="comment">// Step 2: Extract the complete, lossless lexical token stream</span>
+    <span class="identifier">Tokens</span> <span class="operator">:=</span> <span class="class-name">TSourceTokens</span><span class="operator">.</span><span class="routine">Create</span><span class="operator">(</span>ASourceCode<span class="operator">)</span><span class="operator">;</span>
+    <span class="keyword">try</span>
+      <span class="comment">// Step 3: Compute line breaks and indentation marks from the AST</span>
+      <span class="identifier">Planner</span> <span class="operator">:=</span> <span class="class-name">TLayoutPlanner</span><span class="operator">.</span><span class="routine">Create</span><span class="operator">(</span>Tokens<span class="operator">)</span><span class="operator">;</span>
+      <span class="keyword">try</span>
+        <span class="identifier">Marks</span> <span class="operator">:=</span> Planner<span class="operator">.</span><span class="routine">Plan</span><span class="operator">(</span>Root<span class="operator">)</span><span class="operator">;</span>
+      <span class="keyword">finally</span>
+        Planner<span class="operator">.</span><span class="property">Free</span><span class="operator">;</span>
+      <span class="keyword">end</span><span class="operator">;</span>
 
-      // Step 4: Emit formatted code, preserving every original token
-      Emitter := TTokenEmitter.Create(Tokens, Marks);
-      try
-        Result := Emitter.Emit;
-      finally
-        Emitter.Free;
-      end;
-    finally
-      Tokens.Free;
-    end;
-  finally
-    Root.Free;
-  end;
-end;
+      <span class="comment">// Step 4: Emit formatted code, preserving every original token</span>
+      <span class="identifier">Emitter</span> <span class="operator">:=</span> <span class="class-name">TTokenEmitter</span><span class="operator">.</span><span class="routine">Create</span><span class="operator">(</span>Tokens<span class="operator">,</span> Marks<span class="operator">)</span><span class="operator">;</span>
+      <span class="keyword">try</span>
+        <span class="identifier">Result</span> <span class="operator">:=</span> Emitter<span class="operator">.</span><span class="property">Emit</span><span class="operator">;</span>
+      <span class="keyword">finally</span>
+        Emitter<span class="operator">.</span><span class="property">Free</span><span class="operator">;</span>
+      <span class="keyword">end</span><span class="operator">;</span>
+    <span class="keyword">finally</span>
+      Tokens<span class="operator">.</span><span class="property">Free</span><span class="operator">;</span>
+    <span class="keyword">end</span><span class="operator">;</span>
+  <span class="keyword">finally</span>
+    Root<span class="operator">.</span><span class="property">Free</span><span class="operator">;</span>
+  <span class="keyword">end</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span>
 
-end.</code></pre>
+<span class="keyword">end</span><span class="operator">.</span></code></pre>
 </div>
 
 <p>Notice the disciplined memory ownership model. In Object Pascal, <code>TSyntaxNode</code> instances form an ownership tree—freeing the root via <code>Root.Free</code> safely and recursively disposes of all child nodes.</p>
@@ -188,26 +188,26 @@ end.</code></pre>
 
 <p>How does the hybrid architecture handle code heavily populated with compiler directives? Consider this example from <code>docs/demo2_compiler_dir.pas</code>:</p>
 
-<div class="code" data-language="pascal">
-<pre><code>unit demo2_compiler_dir;
+<div class="code" data-language="object-pascal">
+<pre><code><span class="keyword">unit</span> demo2_compiler_dir<span class="operator">;</span>
 
-{$IFDEF FPC}{$MODE DELPHI}{$ENDIF}
-{$DEFINE SOMETHING}
+<span class="compiler-directive">{$IFDEF FPC}</span><span class="compiler-directive">{$MODE DELPHI}</span><span class="compiler-directive">{$ENDIF}</span>
+<span class="compiler-directive">{$DEFINE SOMETHING}</span>
 
-interface
+<span class="keyword">interface</span>
 
-implementation
+<span class="keyword">implementation</span>
 
-procedure Test;
-begin
-  {$IFDEF SOMETHING}
-    Writeln(&#39;x1&#39;); Writeln(&#39;x2&#39;); 
-  {$ELSE}
-    Writeln(&#39;y1&#39;);      Writeln(&#39;y2&#39;); 
-  {$ENDIF}
-end;
+<span class="keyword">procedure</span> <span class="routine">Test</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  <span class="compiler-directive">{$IFDEF SOMETHING}</span>
+    <span class="routine">Writeln</span><span class="operator">(</span><span class="string">&#39;x1&#39;</span><span class="operator">)</span><span class="operator">;</span> <span class="routine">Writeln</span><span class="operator">(</span><span class="string">&#39;x2&#39;</span><span class="operator">)</span><span class="operator">;</span> 
+  <span class="compiler-directive">{$ELSE}</span>
+    <span class="routine">Writeln</span><span class="operator">(</span><span class="string">&#39;y1&#39;</span><span class="operator">)</span><span class="operator">;</span>      <span class="routine">Writeln</span><span class="operator">(</span><span class="string">&#39;y2&#39;</span><span class="operator">)</span><span class="operator">;</span> 
+  <span class="compiler-directive">{$ENDIF}</span>
+<span class="keyword">end</span><span class="operator">;</span>
 
-end.</code></pre>
+<span class="keyword">end</span><span class="operator">.</span></code></pre>
 </div>
 
 <p>In a pure AST approach, the <code>{$ELSE}</code> branch is permanently deleted. In the hybrid architecture:</p>
@@ -248,32 +248,32 @@ end.</code></pre>
 
 <p>The output of the second pass must match the output of the first pass down to the byte. In the repository, we built a diagnostic runner (<code>docs/demo3_idempotent.dpr</code>) that verifies this property and pinpoint-locates the exact character position of any deviation:</p>
 
-<div class="code" data-language="pascal">
-<pre><code>function Test_Idempotent(AInput: string): TResult;
-var
-  Formatter: TDelphiCodeFormatter;
-begin
-  Result.Passed := False;
-  Formatter := TDelphiCodeFormatter.Create;
-  try
-    Result.Actual := NormalizeLineEndings(Formatter.FormatSource(AInput));
-    Result.Again  := NormalizeLineEndings(Formatter.FormatSource(Result.Actual));
+<div class="code" data-language="object-pascal">
+<pre><code><span class="keyword">function</span> <span class="routine">Test_Idempotent</span><span class="operator">(</span><span class="identifier">AInput</span><span class="operator">:</span> <span class="keyword">string</span><span class="operator">)</span><span class="operator">:</span> <span class="class-name">TResult</span><span class="operator">;</span>
+<span class="keyword">var</span>
+  <span class="identifier">Formatter</span><span class="operator">:</span> <span class="class-name">TDelphiCodeFormatter</span><span class="operator">;</span>
+<span class="keyword">begin</span>
+  Result<span class="operator">.</span><span class="property">Passed</span> <span class="operator">:=</span> <span class="boolean">False</span><span class="operator">;</span>
+  <span class="identifier">Formatter</span> <span class="operator">:=</span> <span class="class-name">TDelphiCodeFormatter</span><span class="operator">.</span><span class="property">Create</span><span class="operator">;</span>
+  <span class="keyword">try</span>
+    Result<span class="operator">.</span><span class="property">Actual</span> <span class="operator">:=</span> <span class="routine">NormalizeLineEndings</span><span class="operator">(</span>Formatter<span class="operator">.</span><span class="routine">FormatSource</span><span class="operator">(</span>AInput<span class="operator">)</span><span class="operator">)</span><span class="operator">;</span>
+    Result<span class="operator">.</span><span class="property">Again</span>  <span class="operator">:=</span> <span class="routine">NormalizeLineEndings</span><span class="operator">(</span>Formatter<span class="operator">.</span><span class="routine">FormatSource</span><span class="operator">(</span>Result<span class="operator">.</span><span class="property">Actual</span><span class="operator">)</span><span class="operator">)</span><span class="operator">;</span>
     
-    if Result.Actual = Result.Again then
-    begin
-      Result.Passed := True;
-      Result.Report := &#39;Formatting IS idempotent: Format(Format(S)) = Format(S)&#39;;
-    end
-    else
-    begin
-      Result.Passed := False;
-      Result.Report := &#39;Formatting IS NOT idempotent! (&#39; +
-        FirstDifference(Result.Again, Result.Actual) + &#39;)&#39;;
-    end;
-  finally
-    Formatter.Free;
-  end;
-end;</code></pre>
+    <span class="keyword">if</span> Result<span class="operator">.</span><span class="property">Actual</span> <span class="operator">=</span> Result<span class="operator">.</span><span class="property">Again</span> <span class="keyword">then</span>
+    <span class="keyword">begin</span>
+      Result<span class="operator">.</span><span class="property">Passed</span> <span class="operator">:=</span> <span class="boolean">True</span><span class="operator">;</span>
+      Result<span class="operator">.</span><span class="property">Report</span> <span class="operator">:=</span> <span class="string">&#39;Formatting IS idempotent: Format(Format(S)) = Format(S)&#39;</span><span class="operator">;</span>
+    <span class="keyword">end</span>
+    <span class="keyword">else</span>
+    <span class="keyword">begin</span>
+      Result<span class="operator">.</span><span class="property">Passed</span> <span class="operator">:=</span> <span class="boolean">False</span><span class="operator">;</span>
+      Result<span class="operator">.</span><span class="property">Report</span> <span class="operator">:=</span> <span class="string">&#39;Formatting IS NOT idempotent! (&#39;</span> <span class="operator">+</span>
+        <span class="routine">FirstDifference</span><span class="operator">(</span>Result<span class="operator">.</span><span class="property">Again</span><span class="operator">,</span> Result<span class="operator">.</span><span class="property">Actual</span><span class="operator">)</span> <span class="operator">+</span> <span class="string">&#39;)&#39;</span><span class="operator">;</span>
+    <span class="keyword">end</span><span class="operator">;</span>
+  <span class="keyword">finally</span>
+    Formatter<span class="operator">.</span><span class="property">Free</span><span class="operator">;</span>
+  <span class="keyword">end</span><span class="operator">;</span>
+<span class="keyword">end</span><span class="operator">;</span></code></pre>
 </div>
 
 <p>Engine stability is further reinforced by a suite of 21 <strong>Golden Master</strong> snapshot tests in <code>delphi-formatter/tests/golden/</code>, covering constructs from basic units and generics to modern Delphi 10.3+ inline variables (<code>var X := 10;</code>).</p>
